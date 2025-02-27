@@ -23,3 +23,22 @@ go.work.sum
 
 # env file
 .env
+
+# Ignore specific Identifier files
+MyIdentifier.json
+AnotherIdentifier.txt
+
+# Ignore files starting with "Identifier"
+.Identifier*
+
+# Ignore files with "Identifier" anywhere in their name that have the log extension
+*Identifier*.log
+
+#Ignore the folder containing the files
+identifiers/
+
+# Ignore other types of files (example)
+*.log
+*.tmp
+
+*.env
