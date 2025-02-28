@@ -1,6 +1,7 @@
 package razorpay
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -34,6 +35,7 @@ func (p *RazoryPay) Deposit(req models.DepositRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Println(body)
 	razorId, _ := body["id"].(string)
 	return razorId, nil
 
@@ -63,5 +65,38 @@ func (r *RazoryPay) GetPaymentInfo(orderID, amountInPaisa, currency string) inte
 		Currency:     currency,
 		MerchantName: "Hiring At Exinity",                                                                                                                                                                                 // Replace with your merchant name
 		ImageURL:     "https://media.licdn.com/dms/image/v2/C4D0BAQHKsboC6kuHfA/company-logo_200_200/company-logo_200_200/0/1630580504879/exinity_logo?e=2147483647&v=beta&t=Zc72r_d8x3O6u_ywVVT--7aE_K0wh0prA9cS2gAJCRs", // Replace with your logo URL
+	}
+}
+
+func (r *RazoryPay) ExtractWebhookData(payload map[string]interface{}) (string, int64, string, error) {
+	// Extract the necessary fields
+	if payload["payload"] != nil {
+		if paymentDowntime, ok := payload["payload"].(map[string]interface{})["payment.downtime"]; ok {
+			if entity, ok := paymentDowntime.(map[string]interface{})["entity"]; ok {
+				if entityMap, ok := entity.(map[string]interface{}); ok {
+					status, ok1 := entityMap["status"].(string)
+					updatedAt, ok2 := entityMap["updated_at"].(float64)
+					id, ok3 := entityMap["id"].(string)
+
+					if ok1 && ok2 && ok3 {
+						fmt.Println("Extracted Data:")
+						fmt.Println("Status:", status)
+						fmt.Println("Updated At:", int64(updatedAt))
+						fmt.Println("ID:", id)
+						return status, int64(updatedAt), id, nil
+					} else {
+						return "", 0, "", errors.New("error extracting data from payload: Type assertion failed")
+					}
+				} else {
+					return "", 0, "", errors.New("error extracting data from payload: entity is not map[string]interface{} ")
+				}
+			} else {
+				return "", 0, "", errors.New("error extracting data from payload: payment.downtime does not contain entity")
+			}
+		} else {
+			return "", 0, "", errors.New("error extracting data from payload: payload does not contain payment.downtime")
+		}
+	} else {
+		return "", 0, "", errors.New("error extracting data from payload: payload not found")
 	}
 }

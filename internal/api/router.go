@@ -28,6 +28,7 @@ func SetupRouter(psp psp.IPSP, redisClient *redis.RedisClient) *mux.Router {
 		},
 	)).Methods("GET")
 	router.Handle("/withdrawal", http.HandlerFunc(WithdrawalHandler)).Methods("POST")
+	router.Handle("/webhook", http.HandlerFunc(WebhookHandler)).Methods("POST")
 
 	return router
 }

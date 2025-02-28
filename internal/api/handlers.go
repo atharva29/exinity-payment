@@ -1,7 +1,9 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"payment-gateway/db/redis"
@@ -37,6 +39,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp psp.IPSP, redisC
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	log.Println("generated OrderID ", orderID)
 
 	// Store Data in Redis
 	redisData := map[string]interface{}{
@@ -88,4 +91,42 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp psp.IPSP, redisC
 // WithdrawalHandler handles withdrawal requests.
 func WithdrawalHandler(w http.ResponseWriter, r *http.Request) {
 	// withdrawal request logic
+}
+
+// WebhookHandler handles webhook events from Razorpay.
+func WebhookHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("webhook initiated")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error reading webhook body:", err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	// Print the payload
+	log.Println("Webhook Payload:")
+	// log.Println(string(body))
+
+	// Optionally, you can unmarshal the JSON payload to a struct
+	var payload map[string]interface{}
+	err = json.Unmarshal(body, &payload)
+	if err != nil {
+		log.Println("Error unmarshalling webhook payload:", err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	// print the payload nicely
+	formattedPayload, _ := json.MarshalIndent(payload, "", "  ")
+	fmt.Println(string(formattedPayload))
+
+	// TODO: Process the payload and update the order status accordingly.
+	// Consider validating the signature for security.
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "Webhook received successfully")
 }
