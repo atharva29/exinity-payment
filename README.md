@@ -4,6 +4,11 @@ This assessment evaluates your skills in implementing a robust and scalable paym
 
 You will work with a skeleton codebase that includes prebuilt functionality, which will assist you in the implementation. You are required to implement two key endpoints and also handle the callback from gateways to update the transaction status asynchronously. Your code should support different formats depending on the gateway-supported format (your code should support at least JSON and SOAP).
 
+
+## System Design
+![System deisng](./assets/system-design.png)
+
+
 ## Task Overview
 
 You will implement the following endpoints:
