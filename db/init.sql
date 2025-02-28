@@ -19,7 +19,7 @@ BEGIN
             name VARCHAR(255) NOT NULL UNIQUE,
             code CHAR(2) NOT NULL UNIQUE,
             currency CHAR(3) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+            created_at TIMESTAMP     DEFAULT CURRENT_TIMESTAMP, 
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     END IF;
@@ -66,3 +66,33 @@ BEGIN
         );
     END IF;
 END $$;
+
+
+-- Insert initial data into countries table
+INSERT INTO countries (name, code, currency)
+VALUES
+ ('INDIA', 'IN', 'INR'),
+ ('UAE', 'AE', 'AED')
+ON CONFLICT (name) DO NOTHING;
+
+
+-- Insert initial data into gateways table
+INSERT INTO gateways (name, data_format_supported)
+VALUES 
+  ('STRIPE', 'JSON'),
+  ('RAZORPAY', 'JSON')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO gateway_countries (gateway_id, country_id)
+VALUES 
+  (1, 3),
+  (2, 1),
+  (2, 3)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO users (username, email, password, country_id)
+VALUES 
+    ('atharva', 'atharvaajgaonkar29@gmail.com', '$2a$10$hashedpasswordhere', 1),
+    ('john_doe', 'johndoe@example.com', '$2a$10$anotherhashedpasswordhere', 2)
+ON CONFLICT (name) DO NOTHING;
+
