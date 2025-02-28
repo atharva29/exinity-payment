@@ -21,3 +21,9 @@ type DepositRequest struct {
 	GatewayID int       `json:"gateway_id"`
 	CountryID int       `json:"country_id"`
 }
+
+// Gateway struct for response
+type Gateway struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
