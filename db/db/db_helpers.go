@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"payment-gateway/internal/services"
 	"time"
 
@@ -53,11 +54,19 @@ type DB struct {
 }
 
 // InitializeDB initializes the database connection
-func InitializeDB(dataSourceName string) *DB {
+func InitializeDB() *DB {
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+
+	dbURL := "postgres://" + dbUser + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
+
 	var err error
 
 	err = services.RetryOperation(func() error {
-		db, err = sql.Open("postgres", dataSourceName)
+		db, err = sql.Open("postgres", dbURL)
 		if err != nil {
 			return err
 		}

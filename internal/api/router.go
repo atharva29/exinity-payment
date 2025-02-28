@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"os"
 	"payment-gateway/db/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/services/psp"
@@ -10,31 +9,28 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func SetupRouter(psp psp.IPSP, redisClient *redis.RedisClient, db *db.DB) *mux.Router {
+func SetupRouter(psp *psp.PSP, redisClient *redis.RedisClient, db *db.DB) *mux.Router {
 	router := mux.NewRouter()
-
-	// Create templates directory if it doesn't exist
-	if _, err := os.Stat("templates"); os.IsNotExist(err) {
-		os.Mkdir("templates", os.ModePerm)
-	}
-
-	// Ensure razorpay.html exists in templates
-	if _, err := os.Stat("../templates/razorpay.html"); os.IsNotExist(err) {
-		panic("razorpay.html not found in templates directory")
-	}
+	router.Use(CORS)
 
 	router.Handle("/deposit", http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			DepositHandler(w, r, psp, redisClient) // Pass the psp instance here
 		},
-	)).Methods("GET")
-	router.Handle("/withdrawal", http.HandlerFunc(WithdrawalHandler)).Methods("POST")
-	router.Handle("/webhook", http.HandlerFunc(WebhookHandler)).Methods("POST")
+	)).Methods("POST", "OPTIONS")
+
+	router.Handle("/withdrawal", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			WithdrawalHandler(w, r, psp, redisClient) // Pass the psp instance here
+		},
+	)).Methods("POST", "OPTIONS")
+
+	router.Handle("/webhook", http.HandlerFunc(WebhookHandler)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/get-gateway-by-country/{countryID}", http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			GetGatewayByCountryHandler(w, r, redisClient, db) // Pass the psp instance here
 		},
-	)).Methods("GET")
+	)).Methods("GET", "OPTIONS")
 
 	return router
 }

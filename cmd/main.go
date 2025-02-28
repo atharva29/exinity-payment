@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"payment-gateway/db/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/api"
+	"payment-gateway/internal/services/psp"
 	"payment-gateway/internal/services/psp/razorpay"
 
 	"github.com/joho/godotenv"
@@ -20,27 +20,15 @@ func main() {
 		log.Println("Error loading .env file, using defaults or system environment variables")
 	}
 
-	psp := razorpay.Init()
-	redisAddr := os.Getenv("REDIS_ADDR")         // e.g., "localhost:6379"
-	redisPassword := os.Getenv("REDIS_PASSWORD") // Leave blank if no password
-	redisDB := 0
-	redisClient, err := redis.Init(redisAddr, redisPassword, redisDB)
+	psp := psp.Init([]psp.IPSP{razorpay.Init()})
+
+	redisClient, err := redis.Init()
 	if err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 
-	// // Set up the HTTP server and routes
-
 	// Initialize the database connection
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-
-	dbURL := "postgres://" + dbUser + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
-
-	db := db.InitializeDB(dbURL)
+	db := db.InitializeDB()
 
 	// // Set up the HTTP server and routes
 	router := api.SetupRouter(psp, redisClient, db)
