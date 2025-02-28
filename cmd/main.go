@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"payment-gateway/db"
+	"payment-gateway/db/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/api"
 	"payment-gateway/internal/services/psp/razorpay"
@@ -40,10 +40,10 @@ func main() {
 
 	dbURL := "postgres://" + dbUser + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
 
-	db.InitializeDB(dbURL)
+	db := db.InitializeDB(dbURL)
 
 	// // Set up the HTTP server and routes
-	router := api.SetupRouter(psp, redisClient)
+	router := api.SetupRouter(psp, redisClient, db)
 
 	// // Start the server on port 8080
 	log.Println("Starting server on port 8080...")

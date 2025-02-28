@@ -6,8 +6,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"payment-gateway/db/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/services/psp"
+
+	"github.com/gorilla/mux"
 )
 
 // DepositHandler handles deposit requests.
@@ -129,4 +132,46 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, "Webhook received successfully")
+}
+
+// GetGatewayByCountryHandler
+func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisClient *redis.RedisClient, db *db.DB) {
+	vars := mux.Vars(r)
+	countryID := vars["countryID"]
+
+	if countryID == "" {
+		http.Error(w, "countryID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get gateways for the country from Redis Set
+	gatewayIDs, err := redisClient.GetGatewaysByCountryFromRedisSet(r.Context(), countryID)
+	if err != nil || len(gatewayIDs) == 0 {
+		log.Println("Cache miss, fetching from DB")
+
+		// Fetch from DB
+		gatewayIDs, err = db.GetSupportedGatewaysByCountries(countryID)
+		if err != nil {
+			http.Error(w, "Error fetching gateways", http.StatusInternalServerError)
+			return
+		}
+
+		// Store the gateways in Redis Set
+		err = redisClient.SaveGatewaysToRedisHashSet(r.Context(), countryID, gatewayIDs)
+		if err != nil {
+			http.Error(w, "Error redis insert gateways", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Get scores for each gateway and sort by score
+	sortedGateways, err := redisClient.GetGatewaysSortedByScore(r.Context(), gatewayIDs)
+	if err != nil {
+		http.Error(w, "Error fetching gateway scores", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with sorted gateways
+	json.NewEncoder(w).Encode(GatewayResponse{CountryID: countryID, Gateways: sortedGateways})
+
 }
