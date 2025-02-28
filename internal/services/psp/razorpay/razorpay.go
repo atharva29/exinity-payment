@@ -7,6 +7,7 @@ import (
 	"payment-gateway/internal/models"
 
 	"github.com/razorpay/razorpay-go"
+	"github.com/stripe/stripe-go"
 )
 
 type RazoryPay struct {
@@ -23,7 +24,7 @@ func (p *RazoryPay) GetName() string {
 	return "RAZORPAY"
 }
 
-func (p *RazoryPay) Deposit(req models.DepositRequest) (string, error) {
+func (p *RazoryPay) Deposit(req models.DepositRequest) (string, string, error) {
 	data := map[string]interface{}{
 		"amount":          req.Amount,
 		"currency":        req.Currency,
@@ -33,11 +34,11 @@ func (p *RazoryPay) Deposit(req models.DepositRequest) (string, error) {
 	}
 	body, err := p.client.Order.Create(data, nil)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	fmt.Println(body)
 	razorId, _ := body["id"].(string)
-	return razorId, nil
+	return razorId, "", nil
 
 }
 
@@ -75,6 +76,10 @@ func (r *RazoryPay) GetPaymentInfo(orderID, amountInPaisa, currency string) inte
 		MerchantName: "Hiring At Exinity",                                                                                                                                                                                 // Replace with your merchant name
 		ImageURL:     "https://media.licdn.com/dms/image/v2/C4D0BAQHKsboC6kuHfA/company-logo_200_200/company-logo_200_200/0/1630580504879/exinity_logo?e=2147483647&v=beta&t=Zc72r_d8x3O6u_ywVVT--7aE_K0wh0prA9cS2gAJCRs", // Replace with your logo URL
 	}
+}
+
+func (r *RazoryPay) HandleWebhook(event stripe.Event) error {
+	return nil
 }
 
 func (r *RazoryPay) ExtractWebhookData(payload map[string]interface{}) (string, int64, string, error) {

@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gateway Payment</title>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="https://js.stripe.com/v3/"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin-top: 50px;
         }
+
         #gateway-container {
             margin-top: 20px;
         }
+
         button {
             margin: 5px;
             padding: 10px 20px;
@@ -22,10 +26,11 @@
         }
     </style>
 </head>
+
 <body>
 
     <h2>Fetch Gateways by Country ID</h2>
-    
+
     <input type="text" id="countryID" placeholder="Enter Country ID">
     <button onclick="fetchGateways()">Fetch Gateways</button>
 
@@ -68,8 +73,8 @@
 
         function handleGatewayClick(gatewayID, gatewayName, countryID) {
             console.log(`Selected Gateway: ${gatewayName}`);
-            
-            if (gatewayName === "RAZORPAY") {
+
+            if (gatewayName === "STRIPE") {
                 initiateDeposit(gatewayID, countryID);
             }
         }
@@ -79,7 +84,7 @@
                 amount: "100",
                 user_id: "550e8400-e29b-41d4-a716-446655440000",
                 currency: "USD",
-                gateway_id: "RAZORPAY",
+                gateway_id: "STRIPE",
                 country_id: countryID
             };
 
@@ -90,18 +95,18 @@
                 },
                 body: JSON.stringify(depositData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.data && data.data.order_id) {
-                    renderRazorpayForm(data.data);
-                } else {
-                    alert("Error initiating deposit.");
-                }
-            })
-            .catch(error => {
-                console.error("Deposit API error:", error);
-                alert("Deposit failed.");
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.data && data.data.order_id) {
+                        renderStripeForm(data.data);
+                    } else {
+                        alert("Error initiating deposit.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Deposit API error:", error);
+                    alert("Deposit failed.");
+                });
         }
 
         function renderRazorpayForm(orderData) {
@@ -111,7 +116,7 @@
             const form = document.createElement("form");
             form.id = "paymentForm";
             form.innerHTML = `
-                <button type="submit">Deposit with Razorpay</button>
+                <button type="submit">Deposit with STRIPE</button>
             `;
             razorpayContainer.appendChild(form);
 
@@ -153,7 +158,164 @@
                 e.preventDefault();
             };
         }
+
+        function renderStripeForm(paymentData) {
+            const clientSecret = paymentData.client_secret;
+            console.log("Client Secret:", clientSecret);
+
+            // Check if stripe-container exists, if not create it
+            let stripeContainer = document.getElementById("stripe-container");
+            if (!stripeContainer) {
+                // Create the container element
+                stripeContainer = document.createElement("div");
+                stripeContainer.id = "stripe-container";
+                // Append it to the body or another parent element that definitely exists
+                document.body.appendChild(stripeContainer);
+            }
+
+            stripeContainer.innerHTML = ""; // Clear previous form if any
+
+            // Create form elements
+            const stripeForm = document.createElement("form");
+            stripeForm.id = "payment-form";
+            stripeForm.innerHTML = `
+        <div id="payment-element">
+            <!-- Stripe Elements will be inserted here -->
+        </div>
+        <div id="error-message"></div>
+        <button type="submit" id="submit-button">
+            <div class="spinner hidden" id="spinner"></div>
+            <span id="button-text">Deposit with STRIPE</span>
+        </button>
+    `;
+
+            stripeContainer.appendChild(stripeForm);
+
+            // Add some basic styling
+            const style = document.createElement("style");
+            style.textContent = `
+        #payment-form {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #payment-element {
+            margin-bottom: 24px;
+        }
+        #submit-button {
+            background: #5469d4;
+            color: #ffffff;
+            border-radius: 4px;
+            border: 0;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        #submit-button:hover {
+            filter: brightness(1.1);
+        }
+        .spinner, .spinner:before, .spinner:after {
+            border-radius: 50%;
+        }
+        .spinner {
+            display: inline-block;
+            position: relative;
+            width: 20px;
+            height: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        #error-message {
+            color: #df1b41;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+    `;
+            document.head.appendChild(style);
+
+            // Initialize Stripe
+            const stripe = Stripe("pk_test_51Qx4jvK8KagVSGGmeLik44MvbGu8UTPowU3VbPWUl7S57nJNRahLhyKtBVTUQfP8f6cdQQs5dKvX8RrBktRZGKcy00yJfyfdss"); // Replace with your actual key
+
+            const options = {
+                clientSecret: clientSecret,
+                appearance: {
+                    theme: 'stripe',
+                    variables: {
+                        colorPrimary: '#5469d4',
+                    },
+                },
+            };
+
+            // Create and mount the Payment Element
+            const elements = stripe.elements(options);
+            const paymentElement = elements.create('payment');
+            paymentElement.mount('#payment-element');
+
+            // Handle form submission
+            const form = document.getElementById('payment-form');
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                // Disable the submit button to prevent repeated clicks
+                setLoading(true);
+
+                // Make sure we have a fully qualified URL for the return_url
+                const currentUrl = new URL(window.location.href);
+                const baseUrl = "https://45a2-103-185-174-176.ngrok-free.app"
+                const returnUrl = new URL('/payment-complete', baseUrl).href;
+
+                const { error } = await stripe.confirmPayment({
+                    elements,
+                    confirmParams: {
+                        // Use a properly formatted full URL for the return_url
+                        return_url: returnUrl,
+                        // You can add receipt_email here if you have it
+                        payment_method_data: {
+                            billing_details: {
+                                name: paymentData.customerName || 'John Doe',
+                                email: paymentData.customerEmail || 'john.doe@example.com',
+                            },
+                        },
+                    },
+                });
+
+                if (error) {
+                    // This point will only be reached if there is an immediate error when
+                    // confirming the payment. Show error to your customer (for example, payment
+                    // details incomplete, insufficient funds, etc.)
+                    const messageContainer = document.querySelector('#error-message');
+                    messageContainer.textContent = error.message;
+                    console.error("Payment error:", error);
+                } else {
+                    // Your customer will be redirected to your return_url.
+                    // For some payment methods like iDEAL, your customer will be redirected to an intermediate
+                    // site first to authorize the payment, then redirected to the return_url.
+                }
+
+                setLoading(false);
+            });
+
+            // Show/hide loading UI
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    document.querySelector("#submit-button").disabled = true;
+                    document.querySelector("#spinner").classList.remove("hidden");
+                    document.querySelector("#button-text").classList.add("hidden");
+                } else {
+                    document.querySelector("#submit-button").disabled = false;
+                    document.querySelector("#spinner").classList.add("hidden");
+                    document.querySelector("#button-text").classList.remove("hidden");
+                }
+            }
+        }
     </script>
 
 </body>
+
 </html>

@@ -8,6 +8,7 @@ import (
 	"payment-gateway/internal/api"
 	"payment-gateway/internal/services/psp"
 	"payment-gateway/internal/services/psp/razorpay"
+	"payment-gateway/internal/services/psp/stripe"
 
 	"github.com/joho/godotenv"
 )
@@ -20,7 +21,7 @@ func main() {
 		log.Println("Error loading .env file, using defaults or system environment variables")
 	}
 
-	psp := psp.Init([]psp.IPSP{razorpay.Init()})
+	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init()})
 
 	redisClient, err := redis.Init()
 	if err != nil {

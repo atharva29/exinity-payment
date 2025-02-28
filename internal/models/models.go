@@ -24,11 +24,15 @@ type DepositRequest struct {
 
 // WithdrawalRequest struct for decoding the deposit request body.
 type WithdrawalRequest struct {
-	Amount    string    `json:"amount"`
-	UserID    uuid.UUID `json:"user_id"`
-	Currency  string    `json:"currency"`
-	GatewayID string    `json:"gateway_id"`
-	CountryID string    `json:"country_id"`
+	Amount              int64             `json:"amount"`               // Amount in cents
+	Currency            string            `json:"currency"`             // 3-letter ISO code (e.g., "usd")
+	Description         string            `json:"description"`          // Description of the payout
+	Destination         string            `json:"destination"`          // Destination bank account or card ID
+	Method              string            `json:"method"`               // "standard" or "instant" (default: "standard")
+	StatementDescriptor string            `json:"statement_descriptor"` // Text that appears on recipient's statement
+	Metadata            map[string]string `json:"metadata"`             // Optional: additional data
+	GatewayID           string            `json:"gateway_id"`
+	UserID              uuid.UUID         `json:"user_id"`
 }
 
 // Gateway struct for response
