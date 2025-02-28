@@ -15,11 +15,12 @@ type APIResponse struct {
 
 // DepositRequest struct for decoding the deposit request body.
 type DepositRequest struct {
-	Amount    string    `json:"amount"`
-	UserID    uuid.UUID `json:"user_id"`
-	Currency  string    `json:"currency"`
-	GatewayID string    `json:"gateway_id"`
-	CountryID string    `json:"country_id"`
+	Amount      string    `json:"amount"`
+	UserID      uuid.UUID `json:"user_id"`
+	Currency    string    `json:"currency"`
+	GatewayID   string    `json:"gateway_id"`
+	GatewayName string    `json:"gateway_name"`
+	CountryID   string    `json:"country_id"`
 }
 
 // WithdrawalRequest struct for decoding the deposit request body.
@@ -37,6 +38,7 @@ type WithdrawalRequest struct {
 
 // Gateway struct for response
 type Gateway struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Score int    `json:"score"`
 }

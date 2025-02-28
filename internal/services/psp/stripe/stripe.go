@@ -1,14 +1,17 @@
 package stripe
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
 	"strconv"
 
 	event "github.com/stripe/stripe-go"
+
 	stripe "github.com/stripe/stripe-go/v81"
 
 	"github.com/stripe/stripe-go/v81/paymentintent"
@@ -49,27 +52,12 @@ func (s *StripeClient) Deposit(req models.DepositRequest) (string, string, error
 		Currency: stripe.String(req.Currency),
 	}
 
-	// if req.Description != "" {
-	// 	params.Description = stripe.String(req.Description)
-	// }
-
-	// if req.CustomerID != "" {
-	// 	params.Customer = stripe.String(req.CustomerID)
-	// }
-
-	// if req.PaymentMethodID != "" {
-	// 	params.PaymentMethod = stripe.String(req.PaymentMethodID)
-	// 	params.ConfirmationMethod = stripe.String(string(stripe.PaymentIntentConfirmationMethodManual))
-	// 	params.Confirm = stripe.Bool(true)
-	// }
-
-	// if req.ReceiptEmail != "" {
-	// 	params.ReceiptEmail = stripe.String(req.ReceiptEmail)
-	// }
-
-	// if req.Metadata != nil {
-	// 	params.Metadata = req.Metadata
-	// }
+	params.Metadata = map[string]string{
+		"user_id":      req.UserID.String(),
+		"gateway_id":   req.GatewayID,
+		"gateway_name": "STRIPE",
+		"country_id":   req.CountryID,
+	}
 
 	intent, err := paymentintent.New(params)
 	if err != nil {
@@ -122,30 +110,77 @@ func (s *StripeClient) Withdrawal(req models.WithdrawalRequest) (string, error) 
 	return p.ID, nil
 }
 
-func (s *StripeClient) HandleWebhook(event event.Event) error {
-	switch event.Type {
+func (s *StripeClient) HandleWebhook(ev any, redisClient *redis.RedisClient) error {
+	e := ev.(*event.Event)
+	switch e.Type {
 	case "payment_intent.succeeded":
 		var paymentIntent stripe.PaymentIntent
-		if err := json.Unmarshal(event.Data.Raw, &paymentIntent); err != nil {
+		if err := json.Unmarshal(e.Data.Raw, &paymentIntent); err != nil {
 			log.Printf("❌ Error parsing event data: %v", err)
 			return err
 		}
 
 		// Handle successful payment (update DB, notify user, etc.)
+		// Store Data in Redis
+		data := map[string]interface{}{
+			"status": "success",
+		}
+
+		key := fmt.Sprintf("deposit:userid:%s:orderid:%s", paymentIntent.Metadata["user_id"], paymentIntent.ID)
+		err := redisClient.HSet(key, data)
+		if err != nil {
+			log.Println("Error storing data in redis:", err.Error())
+			return fmt.Errorf("failed to store data in redis: %v", err.Error())
+		}
+
+		redisClient.IncrementGatewayScore(context.Background(), paymentIntent.Metadata["country_id"], paymentIntent.Metadata["gateway_id"])
 		log.Printf("✅ Payment successful: Amount: %d", paymentIntent.Amount)
 
 	case "payment_intent.payment_failed":
 		var paymentIntent stripe.PaymentIntent
-		if err := json.Unmarshal(event.Data.Raw, &paymentIntent); err != nil {
+		if err := json.Unmarshal(e.Data.Raw, &paymentIntent); err != nil {
 			log.Printf("❌ Error parsing event data: %v", err)
 			return err
 		}
 
+		data := map[string]interface{}{
+			"status": "failed",
+		}
+
+		key := fmt.Sprintf("deposit:userid:%s:orderid:%s", paymentIntent.Metadata["user_id"], paymentIntent.ID)
+		err := redisClient.HSet(key, data)
+		if err != nil {
+			log.Println("Error storing data in redis:", err.Error())
+			return fmt.Errorf("failed to store data in redis: %v", err.Error())
+		}
+
+		redisClient.DecrementGatewayScore(context.Background(), paymentIntent.Metadata["country_id"], paymentIntent.Metadata["gateway_id"])
 		// Handle failed payment logic
 		log.Printf("❌ Payment failed: Amount: %d", paymentIntent.Amount)
 
+	case "payment_intent.created":
+		var paymentIntent stripe.PaymentIntent
+		if err := json.Unmarshal(e.Data.Raw, &paymentIntent); err != nil {
+			log.Printf("❌ Error parsing event data: %v", err)
+			return err
+		}
+
+		data := map[string]interface{}{
+			"status": "pending",
+		}
+
+		key := fmt.Sprintf("deposit:userid:%s:orderid:%s", paymentIntent.Metadata["user_id"], paymentIntent.ID)
+		err := redisClient.HSet(key, data)
+		if err != nil {
+			log.Println("Error storing data in redis:", err.Error())
+			return fmt.Errorf("failed to store data in redis: %v", err.Error())
+		}
+
+		// Handle failed payment logic
+		log.Printf("Payment Intent Pending ID: %s", paymentIntent.ID)
+
 	default:
-		log.Printf("Unhandled event type: %s", event.Type)
+		log.Printf("Unhandled event type: %s", e.Type)
 	}
 
 	return nil
