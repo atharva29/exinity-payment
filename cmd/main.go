@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"payment-gateway/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/api"
 	"payment-gateway/internal/services/psp/razorpay"
@@ -14,7 +15,7 @@ import (
 func main() {
 
 	// Load environment variables from .env file
-	err := godotenv.Load()
+	err := godotenv.Load("config")
 	if err != nil {
 		log.Println("Error loading .env file, using defaults or system environment variables")
 	}
@@ -31,15 +32,15 @@ func main() {
 	// // Set up the HTTP server and routes
 
 	// Initialize the database connection
-	// dbUser := os.Getenv("DB_USER")
-	// dbPassword := os.Getenv("DB_PASSWORD")
-	// dbName := os.Getenv("DB_NAME")
-	// dbHost := os.Getenv("DB_HOST")
-	// dbPort := os.Getenv("DB_PORT")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
 
-	// dbURL := "postgres://" + dbUser + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
+	dbURL := "postgres://" + dbUser + ":" + dbPassword + "@" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=disable"
 
-	// db.InitializeDB(dbURL)
+	db.InitializeDB(dbURL)
 
 	// // Set up the HTTP server and routes
 	router := api.SetupRouter(psp, redisClient)
