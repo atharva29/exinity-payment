@@ -5,12 +5,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"payment-gateway/db/db"
+	"payment-gateway/db/redis"
 	"payment-gateway/internal/services/psp"
 
 	"github.com/stripe/stripe-go/webhook"
 )
 
-func PaymentCompleteHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP) {
+func PaymentCompleteHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient, db *db.DB) {
 	const MaxBodyBytes = int64(65536) // Limit request size
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
 	payload, err := io.ReadAll(r.Body)
@@ -34,7 +36,7 @@ func PaymentCompleteHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP
 		return
 	}
 	// Process event in the service layer
-	err = p.HandleWebhook(event)
+	err = p.HandleWebhook(&event, redisClient)
 	if err != nil {
 		log.Printf("❌ Error handling event: %v", err)
 		http.Error(w, "Error processing event", http.StatusInternalServerError)

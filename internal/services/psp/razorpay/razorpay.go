@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
 
 	"github.com/razorpay/razorpay-go"
-	"github.com/stripe/stripe-go"
 )
 
 type RazoryPay struct {
@@ -78,7 +78,7 @@ func (r *RazoryPay) GetPaymentInfo(orderID, amountInPaisa, currency string) inte
 	}
 }
 
-func (r *RazoryPay) HandleWebhook(event stripe.Event) error {
+func (r *RazoryPay) HandleWebhook(event any, redisClient *redis.RedisClient) error {
 	return nil
 }
 

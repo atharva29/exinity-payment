@@ -38,7 +38,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 	}
 
 	// Generate Order ID
-	p, _ := psp.Get(reqBody.GatewayID)
+	p, _ := psp.Get(reqBody.GatewayName)
 	orderID, client_secret, err := p.Deposit(reqBody)
 	if err != nil {
 		log.Println("Error during deposit:", err.Error())
@@ -56,7 +56,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 		"country_id":    reqBody.CountryID,
 		"order_id":      orderID,
 		"client_secret": client_secret,
-		"status":        "pending",
+		"status":        "created",
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID.String(), orderID)
@@ -177,7 +177,7 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 	}
 
 	// Get gateways for the country from Redis Set
-	gatewayIDs, err := redisClient.GetGatewaysByCountryFromRedisSet(r.Context(), countryID)
+	gatewayIDs, err := redisClient.GetGatewaysByCountry(r.Context(), countryID)
 	if err != nil || len(gatewayIDs) == 0 {
 		log.Println("Cache miss, fetching from DB")
 
@@ -197,7 +197,7 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 	}
 
 	// Get scores for each gateway and sort by score
-	sortedGateways, err := redisClient.GetGatewaysSortedByScore(r.Context(), gatewayIDs)
+	sortedGateways, err := redisClient.GetGatewaysByCountry(r.Context(), countryID)
 	if err != nil {
 		http.Error(w, "Error fetching gateway scores", http.StatusInternalServerError)
 		return

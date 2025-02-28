@@ -1,9 +1,8 @@
 package psp
 
 import (
+	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
-
-	"github.com/stripe/stripe-go"
 )
 
 type IPSP interface {
@@ -11,5 +10,5 @@ type IPSP interface {
 	// GetPaymentInfo(orderID, amountInPaisa, currency string) interface{}
 	Withdrawal(req models.WithdrawalRequest) (string, error)
 	GetName() string
-	HandleWebhook(event stripe.Event) error
+	HandleWebhook(event any, redisClient *redis.RedisClient) error
 }

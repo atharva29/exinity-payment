@@ -4,49 +4,58 @@ import (
 	"context"
 	"fmt"
 	"payment-gateway/internal/models"
-	"time"
+	"sort"
 )
 
-// GetGatewaysByCountryFromRedisSet fetches gateways from Redis Hash Set
-func (r *RedisClient) GetGatewaysByCountryFromRedisSet(ctx context.Context, countryID string) ([]models.Gateway, error) {
-	key := "gateway-by-country:" + countryID
-	gatewayData, err := r.Client.HGetAll(ctx, key).Result()
-	if err != nil || len(gatewayData) == 0 {
-		return nil, fmt.Errorf("no gateways found in Redis for country %s", countryID)
+func (s *RedisClient) SaveGatewaysToRedisHashSet(ctx context.Context, countryID string, gateways []models.Gateway) error {
+	pipeline := s.Client.Pipeline()
+	for _, gateway := range gateways {
+		key := fmt.Sprintf("gateway-by-country:%s:%s", countryID, gateway.ID)
+		pipeline.HSet(ctx, key, "gateway_name", gateway.Name, "score", 1)
+	}
+	_, err := pipeline.Exec(ctx)
+	return err
+}
+
+func (s *RedisClient) GetGatewaysByCountry(ctx context.Context, countryID string) ([]models.Gateway, error) {
+	pattern := fmt.Sprintf("gateway-by-country:%s:*", countryID)
+	keys, err := s.Client.Keys(ctx, pattern).Result()
+	if err != nil {
+		return nil, err
 	}
 
 	var gateways []models.Gateway
-	for id, name := range gatewayData {
-		gateways = append(gateways, models.Gateway{ID: id, Name: name})
+	for _, key := range keys {
+		data, err := s.Client.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+		if len(data) == 0 {
+			continue
+		}
+
+		score, _ := s.Client.HGet(ctx, key, "score").Int()
+		gateway := models.Gateway{
+			ID:    key[len(pattern)-1:], // Extracting gateway ID from key
+			Name:  data["gateway_name"],
+			Score: score,
+		}
+		gateways = append(gateways, gateway)
 	}
+
+	sort.Slice(gateways, func(i, j int) bool {
+		return gateways[i].Score > gateways[j].Score
+	})
 
 	return gateways, nil
 }
 
-// SaveGatewaysToRedisHashSet stores gateways as a Redis Hash Set
-func (r *RedisClient) SaveGatewaysToRedisHashSet(ctx context.Context, countryID string, gateways []models.Gateway) error {
-	key := "gateway-by-country:" + countryID
-	pipeline := r.Client.Pipeline()
-
-	for _, gateway := range gateways {
-		pipeline.HSet(ctx, key, gateway.ID, gateway.Name)
-	}
-
-	_, err := pipeline.Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to save gateways to Redis: %v", err)
-	}
-
-	_ = r.Client.Expire(ctx, key, 24*time.Hour).Err() // Set expiry
-	return nil
+func (s *RedisClient) IncrementGatewayScore(ctx context.Context, countryID string, gatewayID string) error {
+	key := fmt.Sprintf("gateway-by-country:%s:%s", countryID, gatewayID)
+	return s.Client.HIncrBy(ctx, key, "score", 1).Err()
 }
 
-// GetGatewaysSortedByScore retrieves gateways sorted by score
-func (r *RedisClient) GetGatewaysSortedByScore(ctx context.Context, gateways []models.Gateway) ([]models.Gateway, error) {
-	sortedGateways := make([]models.Gateway, len(gateways))
-	for i, gateway := range gateways {
-		sortedGateways[i] = models.Gateway{ID: gateway.ID, Name: gateway.Name}
-	}
-
-	return sortedGateways, nil
+func (s *RedisClient) DecrementGatewayScore(ctx context.Context, countryID string, gatewayID string) error {
+	key := fmt.Sprintf("gateway-by-country:%s:%s", countryID, gatewayID)
+	return s.Client.HIncrBy(ctx, key, "score", -1).Err()
 }
