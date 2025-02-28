@@ -39,7 +39,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 
 	// Generate Order ID
 	p, _ := psp.Get(reqBody.GatewayID)
-	orderID, err := p.Deposit(reqBody)
+	orderID, client_secret, err := p.Deposit(reqBody)
 	if err != nil {
 		log.Println("Error during deposit:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -49,13 +49,14 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 
 	// Store Data in Redis
 	data := map[string]interface{}{
-		"amount":     reqBody.Amount,
-		"user_id":    reqBody.UserID.String(),
-		"currency":   reqBody.Currency,
-		"gateway_id": reqBody.GatewayID,
-		"country_id": reqBody.CountryID,
-		"order_id":   orderID,
-		"status":     "pending",
+		"amount":        reqBody.Amount,
+		"user_id":       reqBody.UserID.String(),
+		"currency":      reqBody.Currency,
+		"gateway_id":    reqBody.GatewayID,
+		"country_id":    reqBody.CountryID,
+		"order_id":      orderID,
+		"client_secret": client_secret,
+		"status":        "pending",
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID.String(), orderID)
@@ -104,13 +105,16 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 
 	// Store Data in Redis
 	data := map[string]interface{}{
-		"amount":     reqBody.Amount,
-		"user_id":    reqBody.UserID.String(),
-		"currency":   reqBody.Currency,
-		"gateway_id": reqBody.GatewayID,
-		"country_id": reqBody.CountryID,
-		"order_id":   orderID,
-		"status":     "pending",
+		"amount":               reqBody.Amount,
+		"currency":             reqBody.Currency,
+		"description":          reqBody.Description,
+		"destination":          reqBody.Destination,
+		"method":               reqBody.Method,
+		"statement_descriptor": reqBody.StatementDescriptor,
+		"metadata":             reqBody.Metadata,
+		"order_id":             orderID,
+		"status":               "pending",
+		"user_id":              reqBody.UserID.String(),
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID.String(), orderID)

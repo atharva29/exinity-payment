@@ -11,6 +11,8 @@ require (
 	github.com/redis/go-redis/v9 v9.7.1
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sony/gobreaker v1.0.0
+	github.com/stripe/stripe-go v70.15.0+incompatible
+	github.com/stripe/stripe-go/v81 v81.4.0
 )
 
 require (

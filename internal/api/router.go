@@ -32,5 +32,11 @@ func SetupRouter(psp *psp.PSP, redisClient *redis.RedisClient, db *db.DB) *mux.R
 		},
 	)).Methods("GET", "OPTIONS")
 
+	router.Handle("/payment-complete", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			PaymentCompleteHandler(w, r, psp) // Pass the psp instance here
+		},
+	)).Methods("POST", "OPTIONS")
+
 	return router
 }
