@@ -3,27 +3,45 @@ package razorpay
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"payment-gateway/internal/models"
-	"text/template"
 
 	"github.com/razorpay/razorpay-go"
 )
 
 type RazoryPay struct {
-	client       *razorpay.Client
-	templatePath string
+	client *razorpay.Client
 }
 
 func Init() *RazoryPay {
 	return &RazoryPay{
-		client:       razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET")),
-		templatePath: "../templates/razorpay.html",
+		client: razorpay.NewClient(os.Getenv("RAZORPAY_KEY_ID"), os.Getenv("RAZORPAY_KEY_SECRET")),
 	}
 }
 
+func (p *RazoryPay) GetName() string {
+	return "RAZORPAY"
+}
+
 func (p *RazoryPay) Deposit(req models.DepositRequest) (string, error) {
+	data := map[string]interface{}{
+		"amount":          req.Amount,
+		"currency":        req.Currency,
+		"receipt":         "some_receipt_id",
+		"partial_payment": false,
+		"notes":           map[string]interface{}{},
+	}
+	body, err := p.client.Order.Create(data, nil)
+	if err != nil {
+		return "", err
+	}
+	fmt.Println(body)
+	razorId, _ := body["id"].(string)
+	return razorId, nil
+
+}
+
+func (p *RazoryPay) Withdrawal(req models.WithdrawalRequest) (string, error) {
 	data := map[string]interface{}{
 		"amount":          req.Amount,
 		"currency":        req.Currency,
@@ -45,15 +63,6 @@ func (r *RazoryPay) GetPayment(paymentID string) error {
 	// TODO: get payment details
 	fmt.Println("get payment called", paymentID)
 	return nil
-}
-
-func (r *RazoryPay) GetTemplate() (*template.Template, error) {
-	tmpl, err := template.ParseFiles(r.templatePath) // Use Razorpay template path
-	if err != nil {
-		log.Println("Error parsing template:", err.Error())
-		return nil, err
-	}
-	return tmpl, nil
 }
 
 func (r *RazoryPay) GetPaymentInfo(orderID, amountInPaisa, currency string) interface{} {

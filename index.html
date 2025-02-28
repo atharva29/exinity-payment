@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway Payment</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        #gateway-container {
+            margin-top: 20px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Fetch Gateways by Country ID</h2>
+    
+    <input type="text" id="countryID" placeholder="Enter Country ID">
+    <button onclick="fetchGateways()">Fetch Gateways</button>
+
+    <div id="gateway-container"></div>
+    <div id="razorpay-container"></div>
+
+    <script>
+        function fetchGateways() {
+            const countryID = document.getElementById("countryID").value.trim();
+            if (!countryID) {
+                alert("Please enter a Country ID");
+                return;
+            }
+
+            const apiUrl = `http://localhost:8080/get-gateway-by-country/${countryID}`;
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.gateways || data.gateways.length === 0) {
+                        alert("No gateways found for this country.");
+                        return;
+                    }
+
+                    const container = document.getElementById("gateway-container");
+                    container.innerHTML = ""; // Clear previous buttons
+
+                    data.gateways.forEach(gateway => {
+                        const button = document.createElement("button");
+                        button.textContent = gateway.name;
+                        button.onclick = () => handleGatewayClick(gateway.id, gateway.name, countryID);
+                        container.appendChild(button);
+                    });
+                })
+                .catch(error => {
+                    console.error("Error fetching gateways:", error);
+                    alert("Failed to fetch gateways. Check console for details.");
+                });
+        }
+
+        function handleGatewayClick(gatewayID, gatewayName, countryID) {
+            console.log(`Selected Gateway: ${gatewayName}`);
+            
+            if (gatewayName === "RAZORPAY") {
+                initiateDeposit(gatewayID, countryID);
+            }
+        }
+
+        function initiateDeposit(gatewayID, countryID) {
+            const depositData = {
+                amount: "100",
+                user_id: "550e8400-e29b-41d4-a716-446655440000",
+                currency: "USD",
+                gateway_id: "RAZORPAY",
+                country_id: countryID
+            };
+
+            fetch("http://localhost:8080/deposit", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(depositData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.data && data.data.order_id) {
+                    renderRazorpayForm(data.data);
+                } else {
+                    alert("Error initiating deposit.");
+                }
+            })
+            .catch(error => {
+                console.error("Deposit API error:", error);
+                alert("Deposit failed.");
+            });
+        }
+
+        function renderRazorpayForm(orderData) {
+            const razorpayContainer = document.getElementById("razorpay-container");
+            razorpayContainer.innerHTML = ""; // Clear previous form if any
+
+            const form = document.createElement("form");
+            form.id = "paymentForm";
+            form.innerHTML = `
+                <button type="submit">Deposit with Razorpay</button>
+            `;
+            razorpayContainer.appendChild(form);
+
+            const options = {
+                "key": "rzp_test_wRddSMfkOT0YXW", // Replace with actual Razorpay Key
+                "amount": orderData.amount * 100, // Convert to paise
+                "currency": orderData.currency,
+                "name": "Your Merchant Name",
+                "description": "Deposit Payment",
+                "order_id": orderData.order_id,
+                "handler": function (response) {
+                    alert("Payment ID: " + response.razorpay_payment_id);
+                    alert("Order ID: " + response.razorpay_order_id);
+                    alert("Signature: " + response.razorpay_signature);
+                },
+                "prefill": {
+                    "name": "John Doe",
+                    "email": "john.doe@example.com",
+                    "contact": "9999999999"
+                },
+                "theme": {
+                    "color": "#3399cc"
+                }
+            };
+
+            const rzp1 = new Razorpay(options);
+            rzp1.on('payment.failed', function (response) {
+                alert(response.error.code);
+                alert(response.error.description);
+                alert(response.error.source);
+                alert(response.error.step);
+                alert(response.error.reason);
+                alert(response.error.metadata.order_id);
+                alert(response.error.metadata.payment_id);
+            });
+
+            document.getElementById("paymentForm").onclick = function (e) {
+                rzp1.open();
+                e.preventDefault();
+            };
+        }
+    </script>
+
+</body>
+</html>

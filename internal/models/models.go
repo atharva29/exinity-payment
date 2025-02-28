@@ -18,8 +18,17 @@ type DepositRequest struct {
 	Amount    string    `json:"amount"`
 	UserID    uuid.UUID `json:"user_id"`
 	Currency  string    `json:"currency"`
-	GatewayID int       `json:"gateway_id"`
-	CountryID int       `json:"country_id"`
+	GatewayID string    `json:"gateway_id"`
+	CountryID string    `json:"country_id"`
+}
+
+// WithdrawalRequest struct for decoding the deposit request body.
+type WithdrawalRequest struct {
+	Amount    string    `json:"amount"`
+	UserID    uuid.UUID `json:"user_id"`
+	Currency  string    `json:"currency"`
+	GatewayID string    `json:"gateway_id"`
+	CountryID string    `json:"country_id"`
 }
 
 // Gateway struct for response

@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -15,11 +16,11 @@ type RedisClient struct {
 }
 
 // Init initializes the Redis client.
-func Init(addr, password string, db int) (*RedisClient, error) {
+func Init() (*RedisClient, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
 	})
 
 	ctx := context.Background()
