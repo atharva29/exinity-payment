@@ -8,6 +8,7 @@
         "request": "launch",
         "mode": "debug",
         "program": "${workspaceFolder}/cmd/main.go",
+        "envFile": "${workspaceFolder}/config.env",
         // "buildFlags": "-tags=dynamic"
       }
     ]
