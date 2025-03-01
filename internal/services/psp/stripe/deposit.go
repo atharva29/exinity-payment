@@ -5,8 +5,8 @@ import (
 	"payment-gateway/internal/models"
 	"strconv"
 
-	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/paymentintent"
+	stripe "github.com/stripe/stripe-go/v81"
+	"github.com/stripe/stripe-go/v81/paymentintent"
 )
 
 // Deposit creates a payment intent in Stripe for accepting money
