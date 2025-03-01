@@ -43,5 +43,12 @@ func SetupRouter(psp *psp.PSP, db *db.DB) *mux.Router {
 		},
 	)).Methods("POST", "OPTIONS")
 
+	// stripe webhook
+	router.Handle("/webhook/defaulte-gateway", http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			StripeWebhookHandler(w, r, psp, db) // Pass the psp instance here
+		},
+	)).Methods("POST", "OPTIONS")
+
 	return router
 }

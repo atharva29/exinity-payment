@@ -1,0 +1,177 @@
+package defaultgateway
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"payment-gateway/db"
+	"payment-gateway/db/redis"
+	"payment-gateway/internal/models"
+	"time"
+)
+
+// HandleWebhook processes incoming Stripe webhook events
+func (s *DefaultGatewayClient) HandleWebhook(ev any, db *db.DB) error {
+	e := ev.(*models.DefaultGatewayEvent)
+
+	switch e.Type {
+	// Deposit handlers
+	case "payment_intent.succeeded":
+		return s.handlePaymentIntentSucceeded(e, db)
+	case "payment_intent.payment_failed":
+		return s.handlePaymentIntentFailed(e, db)
+	case "payment_intent.created":
+		return s.handlePaymentIntentCreated(e, db)
+
+	// Withdrawal handlers
+	case "payout.created":
+		return s.handlePayoutCreated(e, db.Redis)
+	case "payout.paid":
+		return s.handlePayoutCompleted(e, db.Redis)
+	case "payout.failed":
+		return s.handlePayoutFailed(e, db.Redis)
+	case "payout.canceled":
+		return s.handlePayoutCancelled(e, db.Redis)
+
+	default:
+		log.Printf("Unhandled event type: %s", e.Type)
+	}
+
+	return nil
+}
+
+// handlePaymentIntentSucceeded handles successful payments
+func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGatewayEvent, db *db.DB) error {
+
+	data := map[string]interface{}{
+		"status": "success",
+	}
+
+	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := db.Redis.HSet(key, data); err != nil {
+		log.Println("Error storing data in redis:", err.Error())
+		return fmt.Errorf("failed to store data in redis: %v", err.Error())
+	}
+
+	db.Redis.IncrementGatewayScore(context.Background(),
+		e.Data.Metadata["country_id"],
+		e.Data.Metadata["gateway_id"])
+
+	log.Printf("✅ Payment successful: Amount: %d", e.Amount)
+	return nil
+}
+
+// handlePaymentIntentSucceeded handles successful payments
+func (s *DefaultGatewayClient) handlePaymentIntentFailed(e *models.DefaultGatewayEvent, db *db.DB) error {
+
+	data := map[string]interface{}{
+		"status": "failed",
+	}
+
+	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := db.Redis.HSet(key, data); err != nil {
+		log.Println("Error storing data in redis:", err.Error())
+		return fmt.Errorf("failed to store data in redis: %v", err.Error())
+	}
+
+	db.Redis.DecrementGatewayScore(context.Background(),
+		e.Data.Metadata["country_id"],
+		e.Data.Metadata["gateway_id"])
+
+	log.Printf("❌ Payment failed: Amount: %d", e.Amount)
+	return nil
+}
+
+// handlePaymentIntentSucceeded handles successful payments
+func (s *DefaultGatewayClient) handlePaymentIntentCreated(e *models.DefaultGatewayEvent, db *db.DB) error {
+	data := map[string]interface{}{
+		"status": "pending",
+	}
+
+	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := db.Redis.HSet(key, data); err != nil {
+		log.Println("Error storing data in redis:", err.Error())
+		return fmt.Errorf("failed to store data in redis: %v", err.Error())
+	}
+
+	db.Redis.DecrementGatewayScore(context.Background(),
+		e.Data.Metadata["country_id"],
+		e.Data.Metadata["gateway_id"])
+
+	log.Printf("Payment Intent Pending ID: %s", e.ID)
+	return nil
+}
+
+// handlePayoutCreated handles newly created payouts
+func (s *DefaultGatewayClient) handlePayoutCreated(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+
+	data := map[string]interface{}{
+		"status":     "created",
+		"created_at": time.Now().Unix(),
+		"amount":     e.Amount,
+		"currency":   string(e.Currency),
+	}
+
+	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := redisClient.HSet(key, data); err != nil {
+		log.Println("Error storing withdrawal data in redis:", err.Error())
+		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
+	}
+
+	log.Printf("✅ Payout created: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
+	return nil
+}
+
+// handlePayoutCompleted handles newly created payouts
+func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+
+	data := map[string]interface{}{
+		"status":       "completed",
+		"completed_at": time.Now().Unix(),
+	}
+
+	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := redisClient.HSet(key, data); err != nil {
+		log.Println("Error storing withdrawal data in redis:", err.Error())
+		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
+	}
+
+	log.Printf("✅ Payout succcess: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
+	return nil
+}
+
+// handlePayoutFailed handles newly created payouts
+func (s *DefaultGatewayClient) handlePayoutFailed(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+
+	data := map[string]interface{}{
+		"status":    "failed",
+		"failed_at": time.Now().Unix(),
+	}
+
+	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := redisClient.HSet(key, data); err != nil {
+		log.Println("Error storing withdrawal data in redis:", err.Error())
+		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
+	}
+
+	log.Printf("✅ Payout Failed: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
+	return nil
+}
+
+// handlePayoutCancelled handles newly created payouts
+func (s *DefaultGatewayClient) handlePayoutCancelled(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+
+	data := map[string]interface{}{
+		"status":       "cancelled",
+		"cancelled_at": time.Now().Unix(),
+	}
+
+	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
+	if err := redisClient.HSet(key, data); err != nil {
+		log.Println("Error storing withdrawal data in redis:", err.Error())
+		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
+	}
+
+	log.Printf("✅ Payout Failed: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
+	return nil
+}
