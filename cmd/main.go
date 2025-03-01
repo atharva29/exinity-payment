@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"payment-gateway/db"
 	"payment-gateway/internal/api"
+	"payment-gateway/internal/kafka"
 	"payment-gateway/internal/psp"
 	"payment-gateway/internal/psp/defaultgateway"
 	"payment-gateway/internal/psp/razorpay"
@@ -28,12 +29,14 @@ func main() {
 		log.Println("Error loading .env file, using defaults or system environment variables")
 	}
 
-	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(), defaultgateway.Init()})
+	kafka := kafka.NewWriterPool()
 
 	db, err := db.NewDB()
 	if err != nil {
 		log.Fatalf("error loading DB : %v", err.Error())
 	}
+
+	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(kafka, db), defaultgateway.Init()})
 
 	// // Set up the HTTP server and routes
 	router := api.SetupRouter(psp, db)

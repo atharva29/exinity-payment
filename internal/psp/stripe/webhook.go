@@ -8,6 +8,7 @@ import (
 	"payment-gateway/db"
 	database "payment-gateway/db/db"
 	"payment-gateway/db/redis"
+	"payment-gateway/internal/kafka"
 	"time"
 
 	event "github.com/stripe/stripe-go"
@@ -15,28 +16,91 @@ import (
 	stripe "github.com/stripe/stripe-go/v81"
 )
 
-// HandleWebhook processes incoming Stripe webhook events
+// PublishWebhookEventToKafka publishes the Stripe event to Kafka topic "gateway.stripe"
 func (s *StripeClient) HandleWebhook(ev any, db *db.DB) error {
+	e := ev.(*event.Event)
+
+	// Serialize the event to JSON
+	eventData, err := json.Marshal(e)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event to JSON: %v", err)
+	}
+
+	// Publish to Kafka
+	err = s.kafkaWriter.PublishMessage(context.Background(), "gateway.stripe", []byte(e.ID), eventData)
+	if err != nil {
+		log.Printf("Failed to publish event %s to Kafka: %v", e.ID, err)
+		return fmt.Errorf("failed to publish event to Kafka: %v", err)
+	}
+
+	log.Printf("Successfully published event %s to Kafka topic 'gateway.stripe'", e.ID)
+	return nil
+}
+
+// startKafkaConsumer starts a consumer for the "gateway.stripe" topic
+func (s *StripeClient) startKafkaConsumer() {
+	// Configure the consumer
+	consumerConfig := kafka.ConsumerConfig{
+		BrokerURL: kafka.GetBrokerURL(), // Match your broker URL
+		Topic:     "gateway.stripe",
+		GroupID:   "stripe-webhook-consumer-group",
+	}
+
+	reader := kafka.NewConsumer(consumerConfig)
+
+	log.Printf("Starting Kafka consumer for topic 'gateway.stripe'...")
+
+	// Run the consumer in a goroutine
+	go func() {
+		defer reader.Close()
+
+		for {
+			// Read message from Kafka
+			msg, err := reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Printf("Error reading message from Kafka: %v", err)
+				continue
+			}
+
+			// Deserialize the event
+			var stripeEvent event.Event
+			err = json.Unmarshal(msg.Value, &stripeEvent)
+			if err != nil {
+				log.Printf("Failed to unmarshal Kafka message: %v", err)
+				continue
+			}
+
+			// Process the event
+			err = s.handleWebhook(&stripeEvent)
+			if err != nil {
+				log.Printf("Error handling Kafka event %s: %v", stripeEvent.ID, err)
+			}
+		}
+	}()
+}
+
+// handleWebhook processes incoming Stripe webhook events
+func (s *StripeClient) handleWebhook(ev any) error {
 	e := ev.(*event.Event)
 
 	switch e.Type {
 	// Deposit handlers
 	case "payment_intent.succeeded":
-		return s.handlePaymentIntentSucceeded(e, db)
+		return s.handlePaymentIntentSucceeded(e, s.db)
 	case "payment_intent.payment_failed":
-		return s.handlePaymentIntentFailed(e, db)
+		return s.handlePaymentIntentFailed(e, s.db)
 	case "payment_intent.created":
-		return s.handlePaymentIntentCreated(e, db.Redis)
+		return s.handlePaymentIntentCreated(e, s.db.Redis)
 
 	// Withdrawal handlers
 	case "payout.created":
-		return s.handlePayoutCreated(e, db.Redis)
+		return s.handlePayoutCreated(e, s.db.Redis)
 	case "payout.paid":
-		return s.handlePayoutPaid(e, db)
+		return s.handlePayoutPaid(e, s.db)
 	case "payout.failed":
-		return s.handlePayoutFailed(e, db.Redis)
+		return s.handlePayoutFailed(e, s.db.Redis)
 	case "payout.canceled":
-		return s.handlePayoutCanceled(e, db.Redis)
+		return s.handlePayoutCanceled(e, s.db.Redis)
 
 	default:
 		log.Printf("Unhandled event type: %s", e.Type)
