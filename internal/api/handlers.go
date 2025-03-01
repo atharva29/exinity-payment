@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"payment-gateway/db"
@@ -15,6 +14,17 @@ import (
 )
 
 // DepositHandler handles deposit requests via POST request
+// @Summary Process a new deposit request
+// @Description Handles deposit creation with payment gateway integration and stores result in Redis
+// @Tags deposits
+// @Accept json
+// @Produce json
+// @Param deposit body models.DepositRequest true "Deposit request payload"
+// @Success 200 {object} map[string]interface{} "Deposit created successfully"
+// @Failure 400 {object} map[string]string "Invalid request payload"
+// @Failure 405 {object} map[string]string "Method not allowed"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /deposit [post]
 func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -31,7 +41,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 	}
 
 	// Validate request body
-	if err := validateDepositRequest(reqBody, psp); err != nil {
+	if err := models.ValidateDepositRequest(reqBody); err != nil {
 		log.Println("Error validating request body:", err.Error())
 		http.Error(w, fmt.Sprintf("Bad Request: %s", err.Error()), http.StatusBadRequest)
 		return
@@ -71,6 +81,18 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 }
 
 // WithdrawalHandler handles withdrawal requests.
+// @Summary Process a new withdrawal request
+// @Description Handles withdrawal creation with payment gateway integration and stores result in Redis
+// @Tags withdrawals
+// @Accept json
+// @Produce json
+// @Param withdrawal body models.CustomWithdrawalRequest true "Withdrawal request payload"
+// @Success 200 {object} map[string]interface{} "Withdrawal created successfully"
+// @Failure 400 {object} map[string]string "Invalid request payload"
+// @Failure 404 {object} map[string]string "Invalid gateway name"
+// @Failure 405 {object} map[string]string "Method not allowed"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /withdrawal [post]
 func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db *db.DB) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -87,7 +109,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db 
 	}
 
 	// Validate request body
-	if err := validateWithdrawalRequest(reqBody, psp); err != nil {
+	if err := models.ValidateCustomWithdrawalRequest(reqBody); err != nil {
 		log.Println("Error validating request body:", err.Error())
 		http.Error(w, fmt.Sprintf("Bad Request: %s", err.Error()), http.StatusBadRequest)
 		return
@@ -131,45 +153,18 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db 
 
 }
 
-// WebhookHandler handles webhook events from Razorpay.
-func WebhookHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("webhook initiated")
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Println("Error reading webhook body:", err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	// Print the payload
-	log.Println("Webhook Payload:")
-	// log.Println(string(body))
-
-	// Optionally, you can unmarshal the JSON payload to a struct
-	var payload map[string]interface{}
-	err = json.Unmarshal(body, &payload)
-	if err != nil {
-		log.Println("Error unmarshalling webhook payload:", err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-	// print the payload nicely
-	formattedPayload, _ := json.MarshalIndent(payload, "", "  ")
-	fmt.Println(string(formattedPayload))
-
-	// TODO: Process the payload and update the order status accordingly.
-	// Consider validating the signature for security.
-
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Webhook received successfully")
-}
-
-// GetGatewayByCountryHandler
+// GetGatewayByCountryHandler retrieves supported gateways for a given country.
+// @Summary Get payment gateways by country
+// @Description Fetches a list of supported payment gateway IDs for a specified country from Redis or DB, sorted by score
+// @Tags gateways
+// @Accept json
+// @Produce json
+// @Param countryID path string true "Country ID" example:"3"
+// @Success 200 {object} GatewayResponse "List of gateway IDs for the country"
+// @Failure 400 {object} map[string]string "Bad Request - Missing countryID"
+// @Failure 404 {object} map[string]string "Not Found - No gateways for the country"
+// @Failure 500 {object} map[string]string "Internal Server Error - Database or Redis failure"
+// @Router /gateways/{countryID} [get]
 func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, db *db.DB) {
 	vars := mux.Vars(r)
 	countryID := vars["countryID"]
@@ -211,6 +206,6 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, db *db.D
 	}
 
 	// Respond with sorted gateways
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(GatewayResponse{CountryID: countryID, Gateways: sortedGateways})
-
 }

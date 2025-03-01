@@ -19,7 +19,7 @@ func (s *StripeClient) Deposit(req models.DepositRequest) (string, string, error
 		Amount:   stripe.Int64(amount),
 		Currency: stripe.String(req.Currency),
 	}
-
+	stripe.Key = s.secretKey
 	params.Metadata = map[string]string{
 		"user_id":      req.UserID,
 		"gateway_id":   req.GatewayID,

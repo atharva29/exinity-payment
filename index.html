@@ -45,7 +45,7 @@
                 return;
             }
 
-            const apiUrl = `http://localhost:8080/get-gateway-by-country/${countryID}`;
+            const apiUrl = `http://localhost:8080/gateways/${countryID}`;
 
             fetch(apiUrl)
                 .then(response => response.json())
@@ -82,7 +82,7 @@
         function initiateDeposit(gatewayID, countryID) {
             const depositData = {
                 amount: "100",
-                user_id: "550e8400-e29b-41d4-a716-446655440000",
+                user_id: "2",
                 currency: "USD",
                 gateway_name: "STRIPE",
                 gateway_id: gatewayID,

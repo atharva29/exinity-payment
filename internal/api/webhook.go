@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,6 +14,19 @@ import (
 	"github.com/stripe/stripe-go/webhook"
 )
 
+// StripeWebhookHandler handles webhook events from Stripe.
+// @Summary Handle Stripe webhook events
+// @Description Processes incoming webhook events from Stripe, verifies the signature, and delegates to the PSP service layer
+// @Tags webhooks
+// @Accept json
+// @Produce plain
+// @Param payload body object true "Stripe webhook payload (dynamic JSON structure)"
+// @Param Stripe-Signature header string true "Stripe signature for verification" example:"t=123456789,v1=abc123..."
+// @Success 200 {string} string "Webhook processed successfully"
+// @Failure 400 {object} map[string]string "Bad Request - Payload too large"
+// @Failure 401 {object} map[string]string "Unauthorized - Invalid signature"
+// @Failure 500 {object} map[string]string "Internal Server Error - Processing or module error"
+// @Router /webhook/stripe [post]
 func StripeWebhookHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db *db.DB) {
 	const MaxBodyBytes = int64(65536) // Limit request size
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
@@ -47,6 +61,17 @@ func StripeWebhookHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, 
 	w.WriteHeader(http.StatusOK)
 }
 
+// DefaultGatewayWebhookHandler handles webhook events from the default gateway.
+// @Summary Handle default gateway webhook events
+// @Description Processes incoming webhook events from the default gateway, parses the payload, and delegates to the PSP service layer
+// @Tags webhooks
+// @Accept json
+// @Produce plain
+// @Param payload body models.DefaultGatewayEvent true "Default gateway webhook payload"
+// @Success 200 {string} string "Webhook processed successfully"
+// @Failure 400 {object} map[string]string "Bad Request - Payload too large"
+// @Failure 500 {object} map[string]string "Internal Server Error - Parsing or processing error"
+// @Router /webhook/default-gateway  [post]
 func DefaultGatewayWebhookHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db *db.DB) {
 	const MaxBodyBytes = int64(65536) // Limit request size
 	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
@@ -83,4 +108,39 @@ func DefaultGatewayWebhookHandler(w http.ResponseWriter, r *http.Request, psp *p
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// WebhookHandler handles webhook events from Razorpay.
+func WebhookHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("webhook initiated")
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Println("Error reading webhook body:", err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	// Print the payload
+	log.Println("Webhook Payload:")
+	// log.Println(string(body))
+
+	// Optionally, you can unmarshal the JSON payload to a struct
+	var payload map[string]interface{}
+	err = json.Unmarshal(body, &payload)
+	if err != nil {
+		log.Println("Error unmarshalling webhook payload:", err.Error())
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	// print the payload nicely
+	formattedPayload, _ := json.MarshalIndent(payload, "", "  ")
+	fmt.Println(string(formattedPayload))
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "Webhook received successfully")
 }

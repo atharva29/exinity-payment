@@ -1,26 +1,38 @@
 package models
 
+import "github.com/go-playground/validator/v10"
+
 // BankAccountDetails contains the information needed to create a bank account
 type BankAccountDetails struct {
-	AccountHolderName string `json:"account_holder_name"` // Name of the account holder
-	AccountNumber     string `json:"account_number"`      // Bank account number
-	RoutingNumber     string `json:"routing_number"`      // Bank routing number (ACH)
-	Country           string `json:"country"`             // Two-letter country code (e.g., "US")
-	Currency          string `json:"currency"`            // Three-letter currency code (e.g., "usd")
-	AccountHolderType string `json:"account_holder_type"` // "individual" or "company"
+	AccountHolderName string `json:"account_holder_name" validate:"required" example:"John Doe"`                            // Name of the account holder
+	AccountNumber     string `json:"account_number" validate:"required" example:"1234567890"`                               // Bank account number
+	RoutingNumber     string `json:"routing_number" validate:"required,len=9" example:"110000614"`                          // Bank routing number (ACH), typically 9 digits in the US
+	Country           string `json:"country" validate:"required,len=2" example:"US"`                                        // Two-letter country code (e.g., "US")
+	Currency          string `json:"currency" validate:"required,len=3" example:"usd"`                                      // Three-letter currency code (e.g., "usd")
+	AccountHolderType string `json:"account_holder_type" validate:"required,oneof=individual company" example:"individual"` // "individual" or "company"
 }
 
-// WithdrawalRequest struct for creating a custom bank withdrawal
+// CustomWithdrawalRequest represents a withdrawal request payload
 type CustomWithdrawalRequest struct {
-	Amount              int64              `json:"amount"`               // Amount in cents
-	Currency            string             `json:"currency"`             // 3-letter ISO code (e.g., "usd")
-	Description         string             `json:"description"`          // Description of the payout
-	BankDetails         BankAccountDetails `json:"bank_details"`         // Custom bank details
-	Method              string             `json:"method"`               // "standard" or "instant" (default: "standard")
-	StatementDescriptor string             `json:"statement_descriptor"` // Text on recipient's statement
-	Metadata            map[string]string  `json:"metadata"`             // Optional additional data
-	UserID              string             `json:"user_id"`              // User ID making the withdrawal
-	GatewayName         string             `json:"gateway_name"`         // Name of the gateway
-	GatewayID           string             `json:"gateway_id"`           // ID of the gateway
-	CountryID           string             `json:"country_id"`           // ID of the country
+	Amount              int64              `json:"amount" validate:"required,gt=0" example:"5000"`                       // Amount in cents
+	Currency            string             `json:"currency" validate:"required,len=3" example:"usd"`                     // 3-letter ISO code (e.g., "usd")
+	Description         string             `json:"description" validate:"required" example:"Monthly payout"`             // Description of the payout
+	BankDetails         BankAccountDetails `json:"bank_details" validate:"required"`                                     // Custom bank details
+	Method              string             `json:"method" validate:"required,oneof=standard instant" example:"standard"` // "standard" or "instant" (default: "standard")
+	StatementDescriptor string             `json:"statement_descriptor" validate:"max=22" example:"EXINITY PAYOUT"`      // Text on recipient's statement (max 22 chars)
+	Metadata            map[string]string  `json:"metadata" example:"{\"key\":\"value\"}"`                               // Optional additional data
+	UserID              string             `json:"user_id" validate:"required" example:"user123"`                        // User ID making the withdrawal
+	GatewayName         string             `json:"gateway_name" validate:"required" example:"stripe"`                    // Name of the gateway
+	GatewayID           string             `json:"gateway_id" validate:"required" example:"gw1"`                         // ID of the gateway
+	CountryID           string             `json:"country_id" validate:"required,len=2" example:"US"`                    // 2-letter ISO country code
+}
+
+// ValidateCustomWithdrawalRequest validates the CustomWithdrawalRequest struct
+func ValidateCustomWithdrawalRequest(req CustomWithdrawalRequest) error {
+	validate := validator.New()
+	err := validate.Struct(req)
+	if err != nil {
+		return err
+	}
+	return nil
 }

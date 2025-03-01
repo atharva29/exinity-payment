@@ -1,7 +1,6 @@
 package defaultgateway
 
 import (
-	"fmt"
 	"os"
 
 	stripe "github.com/stripe/stripe-go/v81"
@@ -18,9 +17,9 @@ func Init() *DefaultGatewayClient {
 	secretKey := os.Getenv("GATEWAY_SECRET_KEY")
 	accountID := os.Getenv("GATEWAY_ACCOUNT_ID")
 
-	if secretKey == "" || accountID == "" {
-		panic(fmt.Sprintf("missing Stripe secret key: %s or account ID: %s", secretKey, accountID))
-	}
+	// if secretKey == "" || accountID == "" {
+	// 	panic(fmt.Sprintf("missing Stripe secret key: %s or account ID: %s", secretKey, accountID))
+	// }
 
 	stripe.Key = secretKey
 	return &DefaultGatewayClient{

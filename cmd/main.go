@@ -10,9 +10,16 @@ import (
 	"payment-gateway/internal/psp/razorpay"
 	"payment-gateway/internal/psp/stripe"
 
+	_ "payment-gateway/docs" // Import generated docs
+
 	"github.com/joho/godotenv"
 )
 
+// @title Deposit API
+// @version 1.0
+// @description This is a deposit processing API
+// @host localhost:8080
+// @BasePath /
 func main() {
 
 	// Load environment variables from .env file

@@ -1,0 +1,422 @@
+basePath: /
+definitions:
+  api.GatewayResponse:
+    properties:
+      country_id:
+        description: 2-letter ISO country code
+        example: US
+        type: string
+      gateways:
+        description: List of gateways sorted by score
+        items:
+          $ref: '#/definitions/models.Gateway'
+        type: array
+    required:
+    - country_id
+    - gateways
+    type: object
+  models.BankAccountDetails:
+    properties:
+      account_holder_name:
+        description: Name of the account holder
+        example: John Doe
+        type: string
+      account_holder_type:
+        description: '"individual" or "company"'
+        enum:
+        - individual
+        - company
+        example: individual
+        type: string
+      account_number:
+        description: Bank account number
+        example: "1234567890"
+        type: string
+      country:
+        description: Two-letter country code (e.g., "US")
+        example: US
+        type: string
+      currency:
+        description: Three-letter currency code (e.g., "usd")
+        example: usd
+        type: string
+      routing_number:
+        description: Bank routing number (ACH), typically 9 digits in the US
+        example: "110000614"
+        type: string
+    required:
+    - account_holder_name
+    - account_holder_type
+    - account_number
+    - country
+    - currency
+    - routing_number
+    type: object
+  models.CustomWithdrawalRequest:
+    properties:
+      amount:
+        description: Amount in cents
+        example: 5000
+        type: integer
+      bank_details:
+        allOf:
+        - $ref: '#/definitions/models.BankAccountDetails'
+        description: Custom bank details
+      country_id:
+        description: 2-letter ISO country code
+        example: US
+        type: string
+      currency:
+        description: 3-letter ISO code (e.g., "usd")
+        example: usd
+        type: string
+      description:
+        description: Description of the payout
+        example: Monthly payout
+        type: string
+      gateway_id:
+        description: ID of the gateway
+        example: gw1
+        type: string
+      gateway_name:
+        description: Name of the gateway
+        example: stripe
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Optional additional data
+        example:
+          '{"key"': '"value"}'
+        type: object
+      method:
+        description: '"standard" or "instant" (default: "standard")'
+        enum:
+        - standard
+        - instant
+        example: standard
+        type: string
+      statement_descriptor:
+        description: Text on recipient's statement (max 22 chars)
+        example: EXINITY PAYOUT
+        maxLength: 22
+        type: string
+      user_id:
+        description: User ID making the withdrawal
+        example: user123
+        type: string
+    required:
+    - amount
+    - bank_details
+    - country_id
+    - currency
+    - description
+    - gateway_id
+    - gateway_name
+    - method
+    - user_id
+    type: object
+  models.Data:
+    properties:
+      metadata:
+        additionalProperties:
+          type: string
+        description: Optional metadata
+        example:
+          country_id: "3"
+          currency: USD
+          gateway_id: "7"
+        type: object
+    type: object
+  models.DefaultGatewayEvent:
+    properties:
+      amount:
+        description: Amount in cents
+        example: 5000
+        type: integer
+      currency:
+        description: 3-letter ISO currency code
+        example: usd
+        type: string
+      data:
+        allOf:
+        - $ref: '#/definitions/models.Data'
+        description: Additional event data
+      id:
+        description: Unique event identifier
+        example: fb848efc-2ea4-4de9-bece-d0e640ceb1ad
+        type: string
+      type:
+        description: Event type
+        example: payment_intent.created
+        type: string
+    type: object
+  models.DepositRequest:
+    properties:
+      amount:
+        description: Deposit amount
+        example: "100"
+        type: string
+      country_id:
+        description: Country code
+        example: "3"
+        type: string
+      currency:
+        description: Currency code
+        example: USD
+        type: string
+      gateway_id:
+        description: Payment gateway ID
+        example: "1"
+        type: string
+      gateway_name:
+        description: Payment gateway name
+        example: STRIPE
+        type: string
+      user_id:
+        description: Unique user identifier
+        example: "1"
+        type: string
+    required:
+    - amount
+    - country_id
+    - currency
+    - gateway_id
+    - gateway_name
+    - user_id
+    type: object
+  models.Gateway:
+    properties:
+      id:
+        description: Unique gateway identifier
+        example: "1"
+        type: string
+      name:
+        description: Name of the gateway
+        example: STRIPE
+        type: string
+      score:
+        type: integer
+    required:
+    - id
+    - name
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a deposit processing API
+  title: Deposit API
+  version: "1.0"
+paths:
+  /deposit:
+    post:
+      consumes:
+      - application/json
+      description: Handles deposit creation with payment gateway integration and stores
+        result in Redis
+      parameters:
+      - description: Deposit request payload
+        in: body
+        name: deposit
+        required: true
+        schema:
+          $ref: '#/definitions/models.DepositRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Deposit created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Process a new deposit request
+      tags:
+      - deposits
+  /gateways/{countryID}:
+    get:
+      consumes:
+      - application/json
+      description: Fetches a list of supported payment gateway IDs for a specified
+        country from Redis or DB, sorted by score
+      parameters:
+      - description: Country ID
+        in: path
+        name: countryID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of gateway IDs for the country
+          schema:
+            $ref: '#/definitions/api.GatewayResponse'
+        "400":
+          description: Bad Request - Missing countryID
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found - No gateways for the country
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error - Database or Redis failure
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get payment gateways by country
+      tags:
+      - gateways
+  /webhook/default-gateway:
+    post:
+      consumes:
+      - application/json
+      description: Processes incoming webhook events from the default gateway, parses
+        the payload, and delegates to the PSP service layer
+      parameters:
+      - description: Default gateway webhook payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/models.DefaultGatewayEvent'
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Webhook processed successfully
+          schema:
+            type: string
+        "400":
+          description: Bad Request - Payload too large
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error - Parsing or processing error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Handle default gateway webhook events
+      tags:
+      - webhooks
+  /webhook/stripe:
+    post:
+      consumes:
+      - application/json
+      description: Processes incoming webhook events from Stripe, verifies the signature,
+        and delegates to the PSP service layer
+      parameters:
+      - description: Stripe webhook payload (dynamic JSON structure)
+        in: body
+        name: payload
+        required: true
+        schema:
+          type: object
+      - description: Stripe signature for verification
+        in: header
+        name: Stripe-Signature
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Webhook processed successfully
+          schema:
+            type: string
+        "400":
+          description: Bad Request - Payload too large
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized - Invalid signature
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error - Processing or module error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Handle Stripe webhook events
+      tags:
+      - webhooks
+  /withdrawal:
+    post:
+      consumes:
+      - application/json
+      description: Handles withdrawal creation with payment gateway integration and
+        stores result in Redis
+      parameters:
+      - description: Withdrawal request payload
+        in: body
+        name: withdrawal
+        required: true
+        schema:
+          $ref: '#/definitions/models.CustomWithdrawalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Withdrawal created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Invalid gateway name
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Process a new withdrawal request
+      tags:
+      - withdrawals
+swagger: "2.0"
