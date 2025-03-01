@@ -43,6 +43,11 @@ func (s *DefaultGatewayClient) HandleWebhook(ev any, db *db.DB) error {
 
 // handlePaymentIntentSucceeded handles successful payments
 func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGatewayEvent, db *db.DB) error {
+	metadata, err := validateMetadata(e.Data.Metadata)
+	if err != nil {
+		log.Printf("❌ Error converting gateway_id to int: %v", err)
+		return fmt.Errorf("invalid gateway_id format: %v", err)
+	}
 
 	data := map[string]interface{}{
 		"status": "success",
@@ -58,6 +63,20 @@ func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGat
 		e.Data.Metadata["country_id"],
 		e.Data.Metadata["gateway_id"])
 
+	err = db.DB.CreateTransaction(database.Transaction{
+		OrderID:   e.ID,
+		Amount:    float64(e.Amount),
+		Status:    "success",
+		Type:      "debit",
+		GatewayID: metadata["gateway_id"],
+		CountryID: metadata["country_id"],
+		UserID:    metadata["user_id"],
+		Currency:  e.Currency,
+	})
+	if err != nil {
+		log.Println("Error storing deposit transaction data in db:", err.Error())
+		return fmt.Errorf("failed to store deposit transaction data in db: %v", err.Error())
+	}
 	log.Printf("✅ Payment successful: Amount: %d", e.Amount)
 	return nil
 }
@@ -151,10 +170,11 @@ func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEve
 		GatewayID: metadata["gateway_id"],
 		CountryID: metadata["country_id"],
 		UserID:    metadata["user_id"],
+		Currency:  e.Currency,
 	})
 	if err != nil {
-		log.Println("Error storing withdrawal transaction data in debsi:", err.Error())
-		return fmt.Errorf("failed to store withdrawal transaction data in debsi: %v", err.Error())
+		log.Println("Error storing withdrawal transaction data in db:", err.Error())
+		return fmt.Errorf("failed to store withdrawal transaction data in db: %v", err.Error())
 	}
 
 	log.Printf("✅ Payout succcess: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)

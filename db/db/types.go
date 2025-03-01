@@ -36,5 +36,6 @@ type Transaction struct {
 	UserID    int
 	GatewayID int
 	CountryID int
+	Currency  string
 	CreatedAt time.Time
 }

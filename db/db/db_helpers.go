@@ -142,10 +142,29 @@ func (d *DB) GetCountries() ([]Country, error) {
 }
 
 func (d *DB) CreateTransaction(transaction Transaction) error {
-	query := `INSERT INTO transactions (amount, type, status, gateway_id, country_id, user_id, created_at) 
-			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+	query := `INSERT INTO transactions (
+		order_id, 
+		amount, 
+		type, 
+		status, 
+		gateway_id, 
+		country_id, 
+		user_id, 
+		created_at, 
+		currency
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
 
-	err := d.db.QueryRow(query, transaction.Amount, transaction.Type, transaction.Status, transaction.GatewayID, transaction.CountryID, transaction.UserID, time.Now()).Scan(&transaction.ID)
+	err := d.db.QueryRow(query,
+		transaction.OrderID,
+		transaction.Amount,
+		transaction.Type,
+		transaction.Status,
+		transaction.GatewayID,
+		transaction.CountryID,
+		transaction.UserID,
+		time.Now(),
+		transaction.Currency,
+	).Scan(&transaction.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert transaction: %v", err)
 	}
