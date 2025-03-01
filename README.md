@@ -17,9 +17,30 @@
 
 ### Todos
 - `/withdrawal` is present in custom developed default payment gateway, support for stripe payout can also be added in future.
-
-
+- CICD pipeline
+- Razorpay functionality is pending, because webhooks doesnt arrive promptly in test environment.
 ---
+
+### Setup
+- setup stripe account and get the required keys https://dashboard.stripe.com/test/apikeys
+
+Set below list of environment variables
+```
+REDIS_ADDR=#
+REDIS_PASSWORD=
+REDIS_DB=0
+RAZORPAY_KEY_ID=rzp_test_123
+RAZORPAY_KEY_SECRET=rzp_secret_this_is_secret
+DB_USER=user
+DB_PASSWORD=password
+DB_NAME=payments
+DB_HOST=localhost
+DB_PORT=5432
+STRIPE_WEBHOOK_SECRET=webhook_secret
+STRIPE_ACCOUNT_ID=stripe_account_id
+STRIPE_SECRET_KEY=stripe_secret_key
+KAFKA_BROKER_URL=localhost9093
+```
 
 ## Task Overview
 
