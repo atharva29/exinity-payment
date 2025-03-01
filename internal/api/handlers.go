@@ -72,14 +72,13 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 
 // WithdrawalHandler handles withdrawal requests.
 func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient) {
-	// withdrawal request logic
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	// Decode request body
-	var reqBody models.WithdrawalRequest
+	var reqBody models.CustomWithdrawalRequest
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
 		log.Println("Error decoding request body:", err.Error())
@@ -94,30 +93,33 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 		return
 	}
 
-	p, _ := psp.Get(reqBody.GatewayID)
-	orderID, err := p.Withdrawal(reqBody)
+	// Generate Order ID
+	p, err := psp.Get(reqBody.GatewayName)
+	if err != nil {
+		log.Println("Error invalid Gateway Name", reqBody.GatewayName)
+		http.Error(w, fmt.Sprintf("Bad Request: %s", err.Error()), http.StatusNotFound)
+		return
+	}
+	payoutID, err := p.Withdrawal(reqBody)
 	if err != nil {
 		log.Println("Error during deposit:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	log.Println("Generated OrderID:", orderID)
+	log.Println("Generated payoutID:", payoutID)
 
 	// Store Data in Redis
 	data := map[string]interface{}{
-		"amount":               reqBody.Amount,
-		"currency":             reqBody.Currency,
-		"description":          reqBody.Description,
-		"destination":          reqBody.Destination,
-		"method":               reqBody.Method,
-		"statement_descriptor": reqBody.StatementDescriptor,
-		"metadata":             reqBody.Metadata,
-		"order_id":             orderID,
-		"status":               "pending",
-		"user_id":              reqBody.UserID.String(),
+		"amount":     reqBody.Amount,
+		"user_id":    reqBody.UserID.String(),
+		"currency":   reqBody.Currency,
+		"gateway_id": reqBody.GatewayID,
+		"country_id": reqBody.CountryID,
+		"orderid":    payoutID,
+		"status":     "created",
 	}
 
-	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID.String(), orderID)
+	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID.String(), payoutID)
 	err = redisClient.HSet(key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
@@ -126,6 +128,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+
 }
 
 // WebhookHandler handles webhook events from Razorpay.
@@ -185,6 +188,10 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 		gatewayIDs, err = db.GetSupportedGatewaysByCountries(countryID)
 		if err != nil {
 			http.Error(w, "Error fetching gateways", http.StatusInternalServerError)
+			return
+		}
+		if len(gatewayIDs) == 0 {
+			http.Error(w, "No gateways ID present for the country", http.StatusNotFound)
 			return
 		}
 

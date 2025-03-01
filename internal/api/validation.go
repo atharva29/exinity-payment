@@ -36,7 +36,7 @@ func validateDepositRequest(req models.DepositRequest, psp *psp.PSP) error {
 }
 
 // validateDepositRequest validates the deposit request body.
-func validateWithdrawalRequest(req models.WithdrawalRequest, psp *psp.PSP) error {
+func validateWithdrawalRequest(req models.CustomWithdrawalRequest, psp *psp.PSP) error {
 	// Add more validation rules here as needed (e.g., currency format, amount range)
 	return nil
 }
