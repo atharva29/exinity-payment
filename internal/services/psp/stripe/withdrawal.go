@@ -14,17 +14,10 @@ import (
 
 // Withdrawal handles the full process of creating a bank account and making a payout
 func (s *StripeClient) Withdrawal(req models.CustomWithdrawalRequest) (string, error) {
-	// Step 1: Create an external bank account using the provided details
-	bankAccountID, err := s.createExternalBankAccount(req.BankDetails)
-	if err != nil {
-		return "", fmt.Errorf("failed to create external bank account: %w", err)
-	}
-
 	// Step 2: Create the payout to this bank account
 	params := &stripe.PayoutParams{
-		Amount:      stripe.Int64(req.Amount),
-		Currency:    stripe.String(req.Currency),
-		Destination: stripe.String(bankAccountID),
+		Amount:   stripe.Int64(req.Amount),
+		Currency: stripe.String(req.Currency),
 	}
 
 	// Add optional parameters

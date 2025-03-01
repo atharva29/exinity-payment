@@ -38,7 +38,7 @@ func SetupRouter(psp *psp.PSP, redisClient *redis.RedisClient, db *db.DB) *mux.R
 	)).Methods("GET", "OPTIONS")
 
 	// stripe webhook
-	router.Handle("/payment-complete", http.HandlerFunc(
+	router.Handle("/webhook/stripe", http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			PaymentCompleteHandler(w, r, psp, redisClient, db) // Pass the psp instance here
 		},
