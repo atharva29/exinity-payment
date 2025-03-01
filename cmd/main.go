@@ -3,8 +3,10 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"payment-gateway/db"
 	"payment-gateway/internal/api"
+	"payment-gateway/internal/kafka"
 	"payment-gateway/internal/psp"
 	"payment-gateway/internal/psp/defaultgateway"
 	"payment-gateway/internal/psp/razorpay"
@@ -21,19 +23,31 @@ import (
 // @host localhost:8080
 // @BasePath /
 func main() {
-
 	// Load environment variables from .env file
 	err := godotenv.Load("config")
 	if err != nil {
 		log.Println("Error loading .env file, using defaults or system environment variables")
 	}
 
-	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(), defaultgateway.Init()})
+	broker := os.Getenv("KAFKA_BROKER")
+	if broker == "" {
+		broker = "localhost:9093" // Default to localhost:9093 for local debugging
+	}
+	brokers := []string{broker}
+
+	// Initialize Kafka
+	k, err := kafka.Init(brokers)
+	if err != nil {
+		log.Fatalf("Failed to initialize Kafka: %v", err)
+	}
+	defer k.Close()
 
 	db, err := db.NewDB()
 	if err != nil {
 		log.Fatalf("error loading DB : %v", err.Error())
 	}
+
+	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(k, db), defaultgateway.Init(k, db)})
 
 	// // Set up the HTTP server and routes
 	router := api.SetupRouter(psp, db)

@@ -15,6 +15,15 @@ import (
 	stripe "github.com/stripe/stripe-go/v81"
 )
 
+func (s *StripeClient) PublishWebhookToKafka(ev any) error {
+	e := ev.(*event.Event)
+	err := s.kafka.PublishData(s.GetTopic(), e.ID, e)
+	if err != nil {
+		log.Printf("Failed to publish data: %v", err)
+	}
+	return nil
+}
+
 // HandleWebhook processes incoming Stripe webhook events
 func (s *StripeClient) HandleWebhook(ev any, db *db.DB) error {
 	e := ev.(*event.Event)

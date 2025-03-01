@@ -11,4 +11,5 @@ type IPSP interface {
 	Withdrawal(req models.CustomWithdrawalRequest, db *db.DB) (string, error)
 	GetName() string
 	HandleWebhook(event any, db *db.DB) error
+	PublishWebhookToKafka(ev any) error
 }

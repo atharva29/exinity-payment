@@ -82,6 +82,10 @@ func (r *RazoryPay) HandleWebhook(ev any, db *db.DB) error {
 	return nil
 }
 
+func (r *RazoryPay) PublishWebhookToKafka(ev any) error {
+	return nil
+}
+
 func (r *RazoryPay) ExtractWebhookData(payload map[string]interface{}) (string, int64, string, error) {
 	// Extract the necessary fields
 	if payload["payload"] != nil {
