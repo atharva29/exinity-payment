@@ -24,12 +24,14 @@
 
 ### Todos
 - `/withdrawal` is present in custom developed default payment gateway, support for stripe payout can also be added in future.
-- CICD pipeline
+- CICD pipeline using github actions
 - Razorpay functionality is pending, because webhooks doesnt arrive promptly in test environment.
 ---
 
 ### Setup
 - setup stripe account and get the required keys https://dashboard.stripe.com/test/apikeys
+- configure stripe webhook
+- configure publishable key in `index.html`
 
 Set below list of environment variables
 ```
