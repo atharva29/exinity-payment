@@ -41,6 +41,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions') THEN
         CREATE TABLE transactions (
             id SERIAL PRIMARY KEY,
+            order_id VARCHAR(255) NOT NULL,
             amount DECIMAL(10, 2) NOT NULL,
             type VARCHAR(50) NOT NULL,
             status VARCHAR(50) NOT NULL,

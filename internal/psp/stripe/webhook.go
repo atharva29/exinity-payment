@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"payment-gateway/db"
+	database "payment-gateway/db/db"
 	"payment-gateway/db/redis"
 	"time"
 
@@ -54,6 +55,12 @@ func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, db *db.DB) e
 		return err
 	}
 
+	metadata, err := validateMetadata(paymentIntent.Metadata)
+	if err != nil {
+		log.Printf("❌ Error converting gateway_id to int: %v", err)
+		return fmt.Errorf("invalid gateway_id format: %v", err)
+	}
+
 	data := map[string]interface{}{
 		"status": "success",
 	}
@@ -68,6 +75,16 @@ func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, db *db.DB) e
 		paymentIntent.Metadata["country_id"],
 		paymentIntent.Metadata["gateway_id"])
 
+	db.DB.CreateTransaction(database.Transaction{
+		OrderID:   e.ID,
+		Amount:    float64(paymentIntent.Amount),
+		Status:    "success",
+		Type:      "credit",
+		GatewayID: metadata["gateway_id"],
+		CountryID: metadata["country_id"],
+		UserID:    metadata["user_id"],
+	})
+
 	log.Printf("✅ Payment successful: Amount: %d", paymentIntent.Amount)
 	return nil
 }
@@ -78,6 +95,12 @@ func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, db *db.DB) erro
 	if err := json.Unmarshal(e.Data.Raw, &paymentIntent); err != nil {
 		log.Printf("❌ Error parsing event data: %v", err)
 		return err
+	}
+
+	metadata, err := validateMetadata(paymentIntent.Metadata)
+	if err != nil {
+		log.Printf("❌ Error converting gateway_id to int: %v", err)
+		return fmt.Errorf("invalid gateway_id format: %v", err)
 	}
 
 	data := map[string]interface{}{
@@ -93,6 +116,16 @@ func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, db *db.DB) erro
 	db.Redis.DecrementGatewayScore(context.Background(),
 		paymentIntent.Metadata["country_id"],
 		paymentIntent.Metadata["gateway_id"])
+
+	db.DB.CreateTransaction(database.Transaction{
+		OrderID:   e.ID,
+		Amount:    float64(paymentIntent.Amount),
+		Status:    "failure",
+		Type:      "credit",
+		GatewayID: metadata["gateway_id"],
+		CountryID: metadata["country_id"],
+		UserID:    metadata["user_id"],
+	})
 
 	log.Printf("❌ Payment failed: Amount: %d", paymentIntent.Amount)
 	return nil
@@ -230,7 +263,7 @@ func (s *StripeClient) handlePayoutCanceled(e *event.Event, redisClient *redis.R
 		return fmt.Errorf("failed to update withdrawal data in redis: %v", err.Error())
 	}
 
-	log.Printf("ℹ️ Payout canceled: ID: %s, Amount: %d %s", payout.ID, payout.Amount, payout.Currency)
+	log.Printf("Payout canceled: ID: %s, Amount: %d %s", payout.ID, payout.Amount, payout.Currency)
 	return nil
 }
 
@@ -253,6 +286,6 @@ func (s *StripeClient) handlePayoutUpdated(e *event.Event, redisClient *redis.Re
 		return fmt.Errorf("failed to update withdrawal data in redis: %v", err.Error())
 	}
 
-	log.Printf("ℹ️ Payout updated: ID: %s, Status: %s", payout.ID, payout.Status)
+	log.Printf("Payout updated: ID: %s, Status: %s", payout.ID, payout.Status)
 	return nil
 }

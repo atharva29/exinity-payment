@@ -29,6 +29,7 @@ type Country struct {
 
 type Transaction struct {
 	ID        int
+	OrderID   string
 	Amount    float64
 	Type      string
 	Status    string
