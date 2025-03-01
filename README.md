@@ -15,6 +15,11 @@
 - ✅ circuit breaker logic added to `stripe deposit` feature
 
 
+### Todos
+- `/withdrawal` is present in custom developed default payment gateway, support for stripe payout can also be added in future.
+
+
+---
 
 ## Task Overview
 
