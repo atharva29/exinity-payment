@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"payment-gateway/db"
 	"payment-gateway/internal/api"
-	"payment-gateway/internal/services/psp"
-	"payment-gateway/internal/services/psp/razorpay"
-	"payment-gateway/internal/services/psp/stripe"
+	"payment-gateway/internal/psp"
+	"payment-gateway/internal/psp/razorpay"
+	"payment-gateway/internal/psp/stripe"
 
 	"github.com/joho/godotenv"
 )

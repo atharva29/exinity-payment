@@ -3,7 +3,7 @@ package api
 import (
 	"fmt"
 	"payment-gateway/internal/models"
-	"payment-gateway/internal/services/psp"
+	"payment-gateway/internal/psp"
 )
 
 // validateDepositRequest validates the deposit request body.

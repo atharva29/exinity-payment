@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"payment-gateway/db"
-	"payment-gateway/internal/services/psp"
+	"payment-gateway/internal/psp"
 
 	"github.com/stripe/stripe-go/webhook"
 )

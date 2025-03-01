@@ -9,7 +9,7 @@ import (
 	"payment-gateway/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
-	"payment-gateway/internal/services/psp"
+	"payment-gateway/internal/psp"
 
 	"github.com/gorilla/mux"
 )
