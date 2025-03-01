@@ -13,7 +13,7 @@ import (
 func TestRedisClient_GetGatewaysByCountry(t *testing.T) {
 	// Create mock Redis client
 	db, mock := redismock.NewClientMock()
-	client := &RedisClient{Client: db}
+	client := &RedisClient{client: db}
 	ctx := context.Background()
 
 	tests := []struct {
