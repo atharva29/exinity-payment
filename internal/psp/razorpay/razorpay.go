@@ -42,7 +42,7 @@ func (p *RazoryPay) Deposit(req models.DepositRequest) (string, string, error) {
 
 }
 
-func (p *RazoryPay) Withdrawal(req models.CustomWithdrawalRequest) (string, error) {
+func (p *RazoryPay) Withdrawal(req models.CustomWithdrawalRequest, db *db.DB) (string, error) {
 	data := map[string]interface{}{
 		"amount":          req.Amount,
 		"currency":        req.Currency,

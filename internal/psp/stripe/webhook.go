@@ -77,9 +77,9 @@ func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, db *db.DB) e
 
 	err = db.DB.CreateTransaction(database.Transaction{
 		OrderID:   e.ID,
-		Amount:    float64(paymentIntent.Amount),
+		Amount:    float64(paymentIntent.Amount) / 100, // stripe deals in paisa
 		Status:    "success",
-		Type:      "debit",
+		Type:      "credit",
 		GatewayID: metadata["gateway_id"],
 		CountryID: metadata["country_id"],
 		UserID:    metadata["user_id"],

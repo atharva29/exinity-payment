@@ -2,6 +2,7 @@ package stripe
 
 import (
 	"fmt"
+	"payment-gateway/db"
 	"payment-gateway/internal/models"
 
 	str "github.com/stripe/stripe-go"
@@ -13,7 +14,7 @@ import (
 )
 
 // Withdrawal handles the full process of creating a bank account and making a payout
-func (s *StripeClient) Withdrawal(req models.CustomWithdrawalRequest) (string, error) {
+func (s *StripeClient) Withdrawal(req models.CustomWithdrawalRequest, db *db.DB) (string, error) {
 	// Step 2: Create the payout to this bank account
 	params := &stripe.PayoutParams{
 		Amount:   stripe.Int64(req.Amount),

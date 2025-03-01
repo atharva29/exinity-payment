@@ -261,3 +261,26 @@ func (d *DB) GetSupportedCountriesByGateway(gatewayID int) ([]Country, error) {
 
 	return countries, nil
 }
+
+// CheckUserBalance checks if the user has sufficient balance for a withdrawal
+func (d *DB) CheckUserBalance(userID int, currency string, amount float64) (bool, float64, error) {
+	var currentBalance float64
+
+	query := `
+		SELECT amount 
+		FROM ledger 
+		WHERE user_id = $1 AND currency = $2`
+
+	err := d.db.QueryRow(query, userID, currency).Scan(&currentBalance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No ledger entry exists for this user/currency
+			return false, 0, fmt.Errorf("no balance found for user %d in currency %s", userID, currency)
+		}
+		return false, 0, fmt.Errorf("failed to check balance: %v", err)
+	}
+
+	// Check if balance is sufficient
+	hasEnough := currentBalance >= amount
+	return hasEnough, currentBalance, nil
+}

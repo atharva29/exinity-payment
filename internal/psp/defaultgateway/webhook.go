@@ -65,9 +65,9 @@ func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGat
 
 	err = db.DB.CreateTransaction(database.Transaction{
 		OrderID:   e.ID,
-		Amount:    float64(e.Amount),
+		Amount:    float64(e.Amount) / 100,
 		Status:    "success",
-		Type:      "debit",
+		Type:      "credit",
 		GatewayID: metadata["gateway_id"],
 		CountryID: metadata["country_id"],
 		UserID:    metadata["user_id"],
@@ -164,7 +164,7 @@ func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEve
 
 	err = db.DB.CreateTransaction(database.Transaction{
 		OrderID:   e.ID,
-		Amount:    float64(e.Amount),
+		Amount:    -float64(e.Amount) / 100,
 		Status:    "success",
 		Type:      "debit",
 		GatewayID: metadata["gateway_id"],

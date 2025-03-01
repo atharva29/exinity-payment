@@ -122,7 +122,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db 
 		http.Error(w, fmt.Sprintf("Bad Request: %s", err.Error()), http.StatusNotFound)
 		return
 	}
-	payoutID, err := p.Withdrawal(reqBody)
+	payoutID, err := p.Withdrawal(reqBody, db)
 	if err != nil {
 		log.Println("Error during deposit:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
