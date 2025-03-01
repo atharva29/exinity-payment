@@ -6,7 +6,7 @@ import (
 )
 
 type DB struct {
-	DB    *db.DB
+	DB    db.IDB
 	Redis redis.IRedis
 }
 
