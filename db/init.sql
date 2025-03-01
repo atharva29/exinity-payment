@@ -56,16 +56,36 @@ END $$;
 
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users') THEN
-        CREATE TABLE users (
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ledger') THEN
+        CREATE TABLE ledger (
             id SERIAL PRIMARY KEY,
-            username VARCHAR(255) NOT NULL UNIQUE,
-            email VARCHAR(255) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            country_id INT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            user_id VARCHAR(255) NOT NULL,
+            currency VARCHAR(10) NOT NULL,
+            amount DECIMAL(15, 2) NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT unique_user_currency UNIQUE (user_id, currency)
+        );
+        
+        CREATE INDEX idx_ledger_user_id ON ledger(user_id);
+        CREATE INDEX idx_ledger_currency ON ledger(currency);
+    END IF;
+END $$;
+
+
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ledger') THEN
+        CREATE TABLE ledger (
+            id SERIAL PRIMARY KEY,              -- Added as a best practice for unique row identification
+            user_id VARCHAR(255) NOT NULL,     -- Changed to user_id for consistency
+            currency VARCHAR(10) NOT NULL,     -- Limited to 10 chars for typical currency codes
+            amount DECIMAL(15, 2) NOT NULL,    -- Changed to DECIMAL instead of VARCHAR for proper numeric operations
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        
+        -- Optional: Add indexes for better query performance
+        CREATE INDEX idx_ledger_user_id ON ledger(user_id);
+        CREATE INDEX idx_ledger_currency ON ledger(currency);
     END IF;
 END $$;
 

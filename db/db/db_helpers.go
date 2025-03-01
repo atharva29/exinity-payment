@@ -142,19 +142,29 @@ func (d *DB) GetCountries() ([]Country, error) {
 }
 
 func (d *DB) CreateTransaction(transaction Transaction) error {
-	query := `INSERT INTO transactions (
-		order_id, 
-		amount, 
-		type, 
-		status, 
-		gateway_id, 
-		country_id, 
-		user_id, 
-		created_at, 
-		currency
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+	// Start a transaction
+	tx, err := d.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
 
-	err := d.db.QueryRow(query,
+	// Defer a rollback in case anything fails
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+	}()
+
+	// Insert into transactions table
+	queryTransaction := `
+		INSERT INTO transactions (
+			order_id, amount, type, status, gateway_id, 
+			country_id, user_id, created_at, currency
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+		RETURNING id`
+
+	err = tx.QueryRow(queryTransaction,
 		transaction.OrderID,
 		transaction.Amount,
 		transaction.Type,
@@ -168,6 +178,35 @@ func (d *DB) CreateTransaction(transaction Transaction) error {
 	if err != nil {
 		return fmt.Errorf("failed to insert transaction: %v", err)
 	}
+
+	// Update or insert into ledger table
+	// Using UPSERT (INSERT ... ON CONFLICT) to handle both new and existing ledger entries
+	queryLedger := `
+		INSERT INTO ledger (user_id, currency, amount, updated_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id, currency)
+		DO UPDATE SET 
+			amount = ledger.amount + EXCLUDED.amount,
+			updated_at = EXCLUDED.updated_at
+		RETURNING id`
+
+	var ledgerID int
+	err = tx.QueryRow(queryLedger,
+		transaction.UserID,
+		transaction.Currency,
+		transaction.Amount,
+		time.Now(),
+	).Scan(&ledgerID)
+	if err != nil {
+		return fmt.Errorf("failed to update ledger: %v", err)
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
 	return nil
 }
 
