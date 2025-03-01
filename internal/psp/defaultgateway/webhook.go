@@ -54,7 +54,7 @@ func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGat
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := db.Redis.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		return fmt.Errorf("failed to store data in redis: %v", err.Error())
 	}
@@ -89,7 +89,7 @@ func (s *DefaultGatewayClient) handlePaymentIntentFailed(e *models.DefaultGatewa
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := db.Redis.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		return fmt.Errorf("failed to store data in redis: %v", err.Error())
 	}
@@ -109,7 +109,7 @@ func (s *DefaultGatewayClient) handlePaymentIntentCreated(e *models.DefaultGatew
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := db.Redis.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		return fmt.Errorf("failed to store data in redis: %v", err.Error())
 	}
@@ -123,7 +123,7 @@ func (s *DefaultGatewayClient) handlePaymentIntentCreated(e *models.DefaultGatew
 }
 
 // handlePayoutCreated handles newly created payouts
-func (s *DefaultGatewayClient) handlePayoutCreated(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+func (s *DefaultGatewayClient) handlePayoutCreated(e *models.DefaultGatewayEvent, redisClient redis.IRedis) error {
 
 	data := map[string]interface{}{
 		"status":     "created",
@@ -133,7 +133,7 @@ func (s *DefaultGatewayClient) handlePayoutCreated(e *models.DefaultGatewayEvent
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := redisClient.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
 	}
@@ -157,7 +157,7 @@ func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEve
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := db.Redis.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
 	}
@@ -196,7 +196,7 @@ func (s *DefaultGatewayClient) handlePayoutFailed(e *models.DefaultGatewayEvent,
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := db.Redis.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
 	}
@@ -206,7 +206,7 @@ func (s *DefaultGatewayClient) handlePayoutFailed(e *models.DefaultGatewayEvent,
 }
 
 // handlePayoutCancelled handles newly created payouts
-func (s *DefaultGatewayClient) handlePayoutCancelled(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+func (s *DefaultGatewayClient) handlePayoutCancelled(e *models.DefaultGatewayEvent, redisClient redis.IRedis) error {
 
 	data := map[string]interface{}{
 		"status":       "cancelled",
@@ -214,7 +214,7 @@ func (s *DefaultGatewayClient) handlePayoutCancelled(e *models.DefaultGatewayEve
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := redisClient.HSet(context.TODO(), key, data); err != nil {
 		log.Println("Error storing withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
 	}
