@@ -31,3 +31,7 @@ func Init() *DefaultGatewayClient {
 func (s *DefaultGatewayClient) GetName() string {
 	return "DEFAULT_GATEWAY"
 }
+
+func (r *DefaultGatewayClient) PublishWebhookToKafka(ev any) error {
+	return nil
+}
