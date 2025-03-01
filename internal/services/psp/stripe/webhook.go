@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"payment-gateway/db"
 	"payment-gateway/db/redis"
 	"time"
 
@@ -14,29 +15,27 @@ import (
 )
 
 // HandleWebhook processes incoming Stripe webhook events
-func (s *StripeClient) HandleWebhook(ev any, redisClient *redis.RedisClient) error {
+func (s *StripeClient) HandleWebhook(ev any, db *db.DB) error {
 	e := ev.(*event.Event)
 
 	switch e.Type {
 	// Deposit handlers
 	case "payment_intent.succeeded":
-		return s.handlePaymentIntentSucceeded(e, redisClient)
+		return s.handlePaymentIntentSucceeded(e, db)
 	case "payment_intent.payment_failed":
-		return s.handlePaymentIntentFailed(e, redisClient)
+		return s.handlePaymentIntentFailed(e, db)
 	case "payment_intent.created":
-		return s.handlePaymentIntentCreated(e, redisClient)
+		return s.handlePaymentIntentCreated(e, db.Redis)
 
 	// Withdrawal handlers
 	case "payout.created":
-		return s.handlePayoutCreated(e, redisClient)
+		return s.handlePayoutCreated(e, db.Redis)
 	case "payout.paid":
-		return s.handlePayoutPaid(e, redisClient)
+		return s.handlePayoutPaid(e, db)
 	case "payout.failed":
-		return s.handlePayoutFailed(e, redisClient)
+		return s.handlePayoutFailed(e, db.Redis)
 	case "payout.canceled":
-		return s.handlePayoutCanceled(e, redisClient)
-	case "payout.updated":
-		return s.handlePayoutUpdated(e, redisClient)
+		return s.handlePayoutCanceled(e, db.Redis)
 
 	default:
 		log.Printf("Unhandled event type: %s", e.Type)
@@ -48,7 +47,7 @@ func (s *StripeClient) HandleWebhook(ev any, redisClient *redis.RedisClient) err
 // ----- Deposit Event Handlers -----
 
 // handlePaymentIntentSucceeded handles successful payments
-func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, redisClient *redis.RedisClient) error {
+func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, db *db.DB) error {
 	var paymentIntent stripe.PaymentIntent
 	if err := json.Unmarshal(e.Data.Raw, &paymentIntent); err != nil {
 		log.Printf("❌ Error parsing event data: %v", err)
@@ -60,12 +59,12 @@ func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, redisClient 
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", paymentIntent.Metadata["user_id"], paymentIntent.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(key, data); err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		return fmt.Errorf("failed to store data in redis: %v", err.Error())
 	}
 
-	redisClient.IncrementGatewayScore(context.Background(),
+	db.Redis.IncrementGatewayScore(context.Background(),
 		paymentIntent.Metadata["country_id"],
 		paymentIntent.Metadata["gateway_id"])
 
@@ -74,7 +73,7 @@ func (s *StripeClient) handlePaymentIntentSucceeded(e *event.Event, redisClient 
 }
 
 // handlePaymentIntentFailed handles failed payments
-func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, redisClient *redis.RedisClient) error {
+func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, db *db.DB) error {
 	var paymentIntent stripe.PaymentIntent
 	if err := json.Unmarshal(e.Data.Raw, &paymentIntent); err != nil {
 		log.Printf("❌ Error parsing event data: %v", err)
@@ -86,12 +85,12 @@ func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, redisClient *re
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", paymentIntent.Metadata["user_id"], paymentIntent.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(key, data); err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		return fmt.Errorf("failed to store data in redis: %v", err.Error())
 	}
 
-	redisClient.DecrementGatewayScore(context.Background(),
+	db.Redis.DecrementGatewayScore(context.Background(),
 		paymentIntent.Metadata["country_id"],
 		paymentIntent.Metadata["gateway_id"])
 
@@ -150,7 +149,7 @@ func (s *StripeClient) handlePayoutCreated(e *event.Event, redisClient *redis.Re
 }
 
 // handlePayoutPaid handles successful payouts
-func (s *StripeClient) handlePayoutPaid(e *event.Event, redisClient *redis.RedisClient) error {
+func (s *StripeClient) handlePayoutPaid(e *event.Event, db *db.DB) error {
 	var payout stripe.Payout
 	if err := json.Unmarshal(e.Data.Raw, &payout); err != nil {
 		log.Printf("❌ Error parsing payout event data: %v", err)
@@ -163,7 +162,7 @@ func (s *StripeClient) handlePayoutPaid(e *event.Event, redisClient *redis.Redis
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", payout.Metadata["user_id"], payout.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(key, data); err != nil {
 		log.Println("Error updating withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to update withdrawal data in redis: %v", err.Error())
 	}
@@ -171,7 +170,7 @@ func (s *StripeClient) handlePayoutPaid(e *event.Event, redisClient *redis.Redis
 	// If using a gateway scoring system for withdrawals
 	if gateway, ok := payout.Metadata["gateway_id"]; ok {
 		if country, ok := payout.Metadata["country_id"]; ok {
-			redisClient.IncrementGatewayScore(context.Background(), country, gateway)
+			db.Redis.IncrementGatewayScore(context.Background(), country, gateway)
 		}
 	}
 

@@ -1,7 +1,7 @@
 package psp
 
 import (
-	"payment-gateway/db/redis"
+	"payment-gateway/db"
 	"payment-gateway/internal/models"
 )
 
@@ -10,5 +10,5 @@ type IPSP interface {
 	// GetPaymentInfo(orderID, amountInPaisa, currency string) interface{}
 	Withdrawal(req models.CustomWithdrawalRequest) (string, error)
 	GetName() string
-	HandleWebhook(event any, redisClient *redis.RedisClient) error
+	HandleWebhook(event any, db *db.DB) error
 }

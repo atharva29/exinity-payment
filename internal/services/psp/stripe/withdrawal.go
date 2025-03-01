@@ -46,7 +46,7 @@ func (s *StripeClient) Withdrawal(req models.CustomWithdrawalRequest) (string, e
 	}
 
 	// Add user ID to metadata
-	metadata["user_id"] = req.UserID.String()
+	metadata["user_id"] = req.UserID
 	metadata["bank_account_holder"] = req.BankDetails.AccountHolderName
 
 	params.Metadata = metadata

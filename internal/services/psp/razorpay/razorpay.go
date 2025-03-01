@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"payment-gateway/db/redis"
+	"payment-gateway/db"
 	"payment-gateway/internal/models"
 
 	"github.com/razorpay/razorpay-go"
@@ -78,7 +78,7 @@ func (r *RazoryPay) GetPaymentInfo(orderID, amountInPaisa, currency string) inte
 	}
 }
 
-func (r *RazoryPay) HandleWebhook(event any, redisClient *redis.RedisClient) error {
+func (r *RazoryPay) HandleWebhook(ev any, db *db.DB) error {
 	return nil
 }
 

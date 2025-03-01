@@ -21,7 +21,7 @@ func (s *StripeClient) Deposit(req models.DepositRequest) (string, string, error
 	}
 
 	params.Metadata = map[string]string{
-		"user_id":      req.UserID.String(),
+		"user_id":      req.UserID,
 		"gateway_id":   req.GatewayID,
 		"gateway_name": "STRIPE",
 		"country_id":   req.CountryID,

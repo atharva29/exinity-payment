@@ -11,50 +11,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var db *sql.DB
-
-type User struct {
-	ID        int
-	Username  string
-	Email     string
-	CountryID int
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type Gateway struct {
-	ID                  int
-	Name                string
-	DataFormatSupported string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-}
-
-type Country struct {
-	ID        int
-	Name      string
-	Code      string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-type Transaction struct {
-	ID        int
-	Amount    float64
-	Type      string
-	Status    string
-	UserID    int
-	GatewayID int
-	CountryID int
-	CreatedAt time.Time
-}
-
 type DB struct {
 	db *sql.DB
 }
 
 // InitializeDB initializes the database connection
-func InitializeDB() *DB {
+func InitializeDB() (*DB, error) {
+	var db *sql.DB
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbName := os.Getenv("DB_NAME")
@@ -75,11 +38,11 @@ func InitializeDB() *DB {
 	}, 5)
 
 	if err != nil {
-		log.Fatalf("Could not connect to the database: %v", err)
+		return nil, fmt.Errorf("could not connect to the database: %v", err.Error())
 	}
 
 	log.Println("Successfully connected to the database.")
-	return &DB{db}
+	return &DB{db}, nil
 }
 
 func CreateUser(db *sql.DB, user User) error {

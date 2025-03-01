@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"payment-gateway/db/db"
+	"payment-gateway/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
 	"payment-gateway/internal/services/psp"
@@ -50,7 +50,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 	// Store Data in Redis
 	data := map[string]interface{}{
 		"amount":        reqBody.Amount,
-		"user_id":       reqBody.UserID.String(),
+		"user_id":       reqBody.UserID,
 		"currency":      reqBody.Currency,
 		"gateway_id":    reqBody.GatewayID,
 		"country_id":    reqBody.CountryID,
@@ -59,7 +59,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 		"status":        "created",
 	}
 
-	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID.String(), orderID)
+	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID, orderID)
 	err = redisClient.HSet(key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
@@ -71,7 +71,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 }
 
 // WithdrawalHandler handles withdrawal requests.
-func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient) {
+func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db *db.DB) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -111,7 +111,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 	// Store Data in Redis
 	data := map[string]interface{}{
 		"amount":     reqBody.Amount,
-		"user_id":    reqBody.UserID.String(),
+		"user_id":    reqBody.UserID,
 		"currency":   reqBody.Currency,
 		"gateway_id": reqBody.GatewayID,
 		"country_id": reqBody.CountryID,
@@ -119,8 +119,8 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 		"status":     "created",
 	}
 
-	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID.String(), payoutID)
-	err = redisClient.HSet(key, data)
+	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID, payoutID)
+	err = db.Redis.HSet(key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -170,7 +170,7 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetGatewayByCountryHandler
-func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisClient *redis.RedisClient, db *db.DB) {
+func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, db *db.DB) {
 	vars := mux.Vars(r)
 	countryID := vars["countryID"]
 
@@ -180,12 +180,12 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 	}
 
 	// Get gateways for the country from Redis Set
-	gatewayIDs, err := redisClient.GetGatewaysByCountry(r.Context(), countryID)
+	gatewayIDs, err := db.Redis.GetGatewaysByCountry(r.Context(), countryID)
 	if err != nil || len(gatewayIDs) == 0 {
 		log.Println("Cache miss, fetching from DB")
 
 		// Fetch from DB
-		gatewayIDs, err = db.GetSupportedGatewaysByCountries(countryID)
+		gatewayIDs, err = db.DB.GetSupportedGatewaysByCountries(countryID)
 		if err != nil {
 			http.Error(w, "Error fetching gateways", http.StatusInternalServerError)
 			return
@@ -196,7 +196,7 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 		}
 
 		// Store the gateways in Redis Set
-		err = redisClient.SaveGatewaysToRedisHashSet(r.Context(), countryID, gatewayIDs)
+		err = db.Redis.SaveGatewaysToRedisHashSet(r.Context(), countryID, gatewayIDs)
 		if err != nil {
 			http.Error(w, "Error redis insert gateways", http.StatusInternalServerError)
 			return
@@ -204,7 +204,7 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 	}
 
 	// Get scores for each gateway and sort by score
-	sortedGateways, err := redisClient.GetGatewaysByCountry(r.Context(), countryID)
+	sortedGateways, err := db.Redis.GetGatewaysByCountry(r.Context(), countryID)
 	if err != nil {
 		http.Error(w, "Error fetching gateway scores", http.StatusInternalServerError)
 		return

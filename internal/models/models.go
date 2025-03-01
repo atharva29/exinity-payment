@@ -1,7 +1,5 @@
 package models
 
-import "github.com/google/uuid"
-
 // a standard request structure for the transactions
 type TransactionRequest struct {
 }
@@ -15,12 +13,12 @@ type APIResponse struct {
 
 // DepositRequest struct for decoding the deposit request body.
 type DepositRequest struct {
-	Amount      string    `json:"amount"`
-	UserID      uuid.UUID `json:"user_id"`
-	Currency    string    `json:"currency"`
-	GatewayID   string    `json:"gateway_id"`
-	GatewayName string    `json:"gateway_name"`
-	CountryID   string    `json:"country_id"`
+	Amount      string `json:"amount"`
+	UserID      string `json:"user_id"`
+	Currency    string `json:"currency"`
+	GatewayID   string `json:"gateway_id"`
+	GatewayName string `json:"gateway_name"`
+	CountryID   string `json:"country_id"`
 }
 
 // WithdrawalRequest struct for decoding the deposit request body.
@@ -33,7 +31,7 @@ type WithdrawalRequest struct {
 	StatementDescriptor string            `json:"statement_descriptor"` // Text that appears on recipient's statement
 	Metadata            map[string]string `json:"metadata"`             // Optional: additional data
 	GatewayID           string            `json:"gateway_id"`
-	UserID              uuid.UUID         `json:"user_id"`
+	UserID              string            `json:"user_id"`
 }
 
 // Gateway struct for response

@@ -3,8 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-	"payment-gateway/db/db"
-	"payment-gateway/db/redis"
+	"payment-gateway/db"
 	"payment-gateway/internal/api"
 	"payment-gateway/internal/services/psp"
 	"payment-gateway/internal/services/psp/razorpay"
@@ -23,16 +22,13 @@ func main() {
 
 	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init()})
 
-	redisClient, err := redis.Init()
+	db, err := db.NewDB()
 	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
+		log.Fatal("Error loading DB : %v", err.Error())
 	}
 
-	// Initialize the database connection
-	db := db.InitializeDB()
-
 	// // Set up the HTTP server and routes
-	router := api.SetupRouter(psp, redisClient, db)
+	router := api.SetupRouter(psp, db)
 
 	// // Start the server on port 8080
 	log.Println("Starting server on port 8080...")
