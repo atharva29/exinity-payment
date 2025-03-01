@@ -15,6 +15,13 @@
 - ✅ circuit breaker logic added to `stripe deposit` feature
 
 
+
+### Demo Video
+[Watch my video on Google Drive](https://drive.google.com/file/d/VIDEO_ID/view?usp=sharing)
+<iframe src="https://drive.google.com/file/d/1vMWh0ImrcEbisESAmo-OrBEzxdvCc8Qi/preview" width="640" height="480" allowfullscreen></iframe>
+
+---
+
 ### Todos
 - `/withdrawal` is present in custom developed default payment gateway, support for stripe payout can also be added in future.
 - CICD pipeline
