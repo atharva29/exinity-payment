@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+func (s *DefaultGatewayClient) PublishWebhookToKafka(ev any) error {
+	e := ev.(*models.DefaultGatewayEvent)
+	err := s.kafka.PublishData(s.GetTopic(), e.ID, e)
+	if err != nil {
+		log.Printf("Failed to publish data: %v", err)
+	}
+	return nil
+}
+
 // HandleWebhook processes incoming Stripe webhook events
 func (s *DefaultGatewayClient) HandleWebhook(ev any, db *db.DB) error {
 	e := ev.(*models.DefaultGatewayEvent)

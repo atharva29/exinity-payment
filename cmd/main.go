@@ -47,7 +47,7 @@ func main() {
 		log.Fatalf("error loading DB : %v", err.Error())
 	}
 
-	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(k, db), defaultgateway.Init()})
+	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(k, db), defaultgateway.Init(k, db)})
 
 	// // Set up the HTTP server and routes
 	router := api.SetupRouter(psp, db)
