@@ -53,7 +53,7 @@ func (s *DefaultGatewayClient) convertAmount(amount int64) (float64, error) {
 
 // checkBalance verifies if the user has sufficient funds
 func (s *DefaultGatewayClient) checkBalance(db *db.DB, userID int, currency string, amount float64) error {
-	hasEnough, currentBalance, err := db.DB.CheckUserBalance(userID, strings.ToUpper(currency), amount)
+	hasEnough, currentBalance, err := db.DB.CheckUserBalance(userID, strings.ToLower(currency), amount)
 	if err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func (s *DefaultGatewayClient) checkBalance(db *db.DB, userID int, currency stri
 func (s *DefaultGatewayClient) buildPayoutParams(req models.CustomWithdrawalRequest) *stripe.PayoutParams {
 	params := &stripe.PayoutParams{
 		Amount:   stripe.Int64(req.Amount),
-		Currency: stripe.String(strings.ToUpper(req.Currency)),
+		Currency: stripe.String(strings.ToLower(req.Currency)),
 	}
 
 	// Set optional parameters
