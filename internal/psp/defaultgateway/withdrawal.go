@@ -43,6 +43,9 @@ func (s *DefaultGatewayClient) Withdrawal(req models.CustomWithdrawalRequest) (s
 	// Add user ID to metadata
 	metadata["user_id"] = req.UserID
 	metadata["bank_account_holder"] = req.BankDetails.AccountHolderName
+	metadata["gateway_id"] = req.GatewayID
+	metadata["country_id"] = req.CountryID
+	metadata["user_id"] = req.UserID
 
 	params.Metadata = metadata
 

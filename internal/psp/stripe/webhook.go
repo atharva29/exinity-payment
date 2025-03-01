@@ -97,7 +97,7 @@ func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, db *db.DB) erro
 		return err
 	}
 
-	metadata, err := validateMetadata(paymentIntent.Metadata)
+	_, err := validateMetadata(paymentIntent.Metadata)
 	if err != nil {
 		log.Printf("❌ Error converting gateway_id to int: %v", err)
 		return fmt.Errorf("invalid gateway_id format: %v", err)
@@ -116,16 +116,6 @@ func (s *StripeClient) handlePaymentIntentFailed(e *event.Event, db *db.DB) erro
 	db.Redis.DecrementGatewayScore(context.Background(),
 		paymentIntent.Metadata["country_id"],
 		paymentIntent.Metadata["gateway_id"])
-
-	db.DB.CreateTransaction(database.Transaction{
-		OrderID:   e.ID,
-		Amount:    float64(paymentIntent.Amount),
-		Status:    "failure",
-		Type:      "credit",
-		GatewayID: metadata["gateway_id"],
-		CountryID: metadata["country_id"],
-		UserID:    metadata["user_id"],
-	})
 
 	log.Printf("❌ Payment failed: Amount: %d", paymentIntent.Amount)
 	return nil

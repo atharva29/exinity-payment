@@ -20,10 +20,10 @@ type CustomWithdrawalRequest struct {
 	BankDetails         BankAccountDetails `json:"bank_details" validate:"required"`                                     // Custom bank details
 	Method              string             `json:"method" validate:"required,oneof=standard instant" example:"standard"` // "standard" or "instant" (default: "standard")
 	StatementDescriptor string             `json:"statement_descriptor" validate:"max=22" example:"EXINITY PAYOUT"`      // Text on recipient's statement (max 22 chars)
-	Metadata            map[string]string  `json:"metadata" example:"{\"key\":\"value\"}"`                               // Optional additional data
-	UserID              string             `json:"user_id" validate:"required" example:"user123"`                        // User ID making the withdrawal
-	GatewayName         string             `json:"gateway_name" validate:"required" example:"stripe"`                    // Name of the gateway
-	GatewayID           string             `json:"gateway_id" validate:"required" example:"gw1"`                         // ID of the gateway
+	Metadata            map[string]string  `json:"metadata" example:"country_id:3,currency:USD,gateway_id:7"`            // Optional additional data
+	UserID              string             `json:"user_id" validate:"required" example:"1"`                              // User ID making the withdrawal
+	GatewayName         string             `json:"gateway_name" validate:"required" example:"DEFAULT_GATEWAY"`           // Name of the gateway
+	GatewayID           string             `json:"gateway_id" validate:"required" example:"7"`                           // ID of the gateway
 	CountryID           string             `json:"country_id" validate:"required,len=2" example:"US"`                    // 2-letter ISO country code
 }
 
