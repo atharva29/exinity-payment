@@ -3,18 +3,28 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"payment-gateway/db/db"
+	"payment-gateway/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
-	"payment-gateway/internal/services/psp"
+	"payment-gateway/internal/psp"
 
 	"github.com/gorilla/mux"
 )
 
 // DepositHandler handles deposit requests via POST request
+// @Summary Process a new deposit request
+// @Description Handles deposit creation with payment gateway integration and stores result in Redis
+// @Tags deposits
+// @Accept json
+// @Produce json
+// @Param deposit body models.DepositRequest true "Deposit request payload"
+// @Success 200 {object} map[string]interface{} "Deposit created successfully"
+// @Failure 400 {object} map[string]string "Invalid request payload"
+// @Failure 405 {object} map[string]string "Method not allowed"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /deposit [post]
 func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -31,7 +41,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 	}
 
 	// Validate request body
-	if err := validateDepositRequest(reqBody, psp); err != nil {
+	if err := models.ValidateDepositRequest(reqBody); err != nil {
 		log.Println("Error validating request body:", err.Error())
 		http.Error(w, fmt.Sprintf("Bad Request: %s", err.Error()), http.StatusBadRequest)
 		return
@@ -50,7 +60,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 	// Store Data in Redis
 	data := map[string]interface{}{
 		"amount":        reqBody.Amount,
-		"user_id":       reqBody.UserID.String(),
+		"user_id":       reqBody.UserID,
 		"currency":      reqBody.Currency,
 		"gateway_id":    reqBody.GatewayID,
 		"country_id":    reqBody.CountryID,
@@ -59,7 +69,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 		"status":        "created",
 	}
 
-	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID.String(), orderID)
+	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID, orderID)
 	err = redisClient.HSet(key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
@@ -71,7 +81,19 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 }
 
 // WithdrawalHandler handles withdrawal requests.
-func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient) {
+// @Summary Process a new withdrawal request
+// @Description Handles withdrawal creation with payment gateway integration and stores result in Redis
+// @Tags withdrawals
+// @Accept json
+// @Produce json
+// @Param withdrawal body models.CustomWithdrawalRequest true "Withdrawal request payload"
+// @Success 200 {object} map[string]interface{} "Withdrawal created successfully"
+// @Failure 400 {object} map[string]string "Invalid request payload"
+// @Failure 404 {object} map[string]string "Invalid gateway name"
+// @Failure 405 {object} map[string]string "Method not allowed"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /withdrawal [post]
+func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db *db.DB) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -87,7 +109,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 	}
 
 	// Validate request body
-	if err := validateWithdrawalRequest(reqBody, psp); err != nil {
+	if err := models.ValidateCustomWithdrawalRequest(reqBody); err != nil {
 		log.Println("Error validating request body:", err.Error())
 		http.Error(w, fmt.Sprintf("Bad Request: %s", err.Error()), http.StatusBadRequest)
 		return
@@ -111,7 +133,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 	// Store Data in Redis
 	data := map[string]interface{}{
 		"amount":     reqBody.Amount,
-		"user_id":    reqBody.UserID.String(),
+		"user_id":    reqBody.UserID,
 		"currency":   reqBody.Currency,
 		"gateway_id": reqBody.GatewayID,
 		"country_id": reqBody.CountryID,
@@ -119,8 +141,8 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 		"status":     "created",
 	}
 
-	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID.String(), payoutID)
-	err = redisClient.HSet(key, data)
+	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID, payoutID)
+	err = db.Redis.HSet(key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -131,46 +153,19 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, red
 
 }
 
-// WebhookHandler handles webhook events from Razorpay.
-func WebhookHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("webhook initiated")
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Println("Error reading webhook body:", err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	// Print the payload
-	log.Println("Webhook Payload:")
-	// log.Println(string(body))
-
-	// Optionally, you can unmarshal the JSON payload to a struct
-	var payload map[string]interface{}
-	err = json.Unmarshal(body, &payload)
-	if err != nil {
-		log.Println("Error unmarshalling webhook payload:", err.Error())
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-	// print the payload nicely
-	formattedPayload, _ := json.MarshalIndent(payload, "", "  ")
-	fmt.Println(string(formattedPayload))
-
-	// TODO: Process the payload and update the order status accordingly.
-	// Consider validating the signature for security.
-
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Webhook received successfully")
-}
-
-// GetGatewayByCountryHandler
-func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisClient *redis.RedisClient, db *db.DB) {
+// GetGatewayByCountryHandler retrieves supported gateways for a given country.
+// @Summary Get payment gateways by country
+// @Description Fetches a list of supported payment gateway IDs for a specified country from Redis or DB, sorted by score
+// @Tags gateways
+// @Accept json
+// @Produce json
+// @Param countryID path string true "Country ID" example:"3"
+// @Success 200 {object} GatewayResponse "List of gateway IDs for the country"
+// @Failure 400 {object} map[string]string "Bad Request - Missing countryID"
+// @Failure 404 {object} map[string]string "Not Found - No gateways for the country"
+// @Failure 500 {object} map[string]string "Internal Server Error - Database or Redis failure"
+// @Router /gateways/{countryID} [get]
+func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, db *db.DB) {
 	vars := mux.Vars(r)
 	countryID := vars["countryID"]
 
@@ -180,12 +175,12 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 	}
 
 	// Get gateways for the country from Redis Set
-	gatewayIDs, err := redisClient.GetGatewaysByCountry(r.Context(), countryID)
+	gatewayIDs, err := db.Redis.GetGatewaysByCountry(r.Context(), countryID)
 	if err != nil || len(gatewayIDs) == 0 {
 		log.Println("Cache miss, fetching from DB")
 
 		// Fetch from DB
-		gatewayIDs, err = db.GetSupportedGatewaysByCountries(countryID)
+		gatewayIDs, err = db.DB.GetSupportedGatewaysByCountries(countryID)
 		if err != nil {
 			http.Error(w, "Error fetching gateways", http.StatusInternalServerError)
 			return
@@ -196,7 +191,7 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 		}
 
 		// Store the gateways in Redis Set
-		err = redisClient.SaveGatewaysToRedisHashSet(r.Context(), countryID, gatewayIDs)
+		err = db.Redis.SaveGatewaysToRedisHashSet(r.Context(), countryID, gatewayIDs)
 		if err != nil {
 			http.Error(w, "Error redis insert gateways", http.StatusInternalServerError)
 			return
@@ -204,13 +199,13 @@ func GetGatewayByCountryHandler(w http.ResponseWriter, r *http.Request, redisCli
 	}
 
 	// Get scores for each gateway and sort by score
-	sortedGateways, err := redisClient.GetGatewaysByCountry(r.Context(), countryID)
+	sortedGateways, err := db.Redis.GetGatewaysByCountry(r.Context(), countryID)
 	if err != nil {
 		http.Error(w, "Error fetching gateway scores", http.StatusInternalServerError)
 		return
 	}
 
 	// Respond with sorted gateways
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(GatewayResponse{CountryID: countryID, Gateways: sortedGateways})
-
 }

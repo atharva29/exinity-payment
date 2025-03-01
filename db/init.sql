@@ -80,14 +80,17 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO gateways (name, data_format_supported)
 VALUES 
   ('STRIPE', 'JSON'),
-  ('RAZORPAY', 'JSON')
+  ('RAZORPAY', 'JSON'),
+  ('DEFAULT_GATEWAY', 'JSON')
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO gateway_countries (gateway_id, country_id)
 VALUES 
   (1, 3),
   (2, 1),
-  (2, 3)
+  (2, 3),
+  (7, 1),
+  (7, 3)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO users (username, email, password, country_id)

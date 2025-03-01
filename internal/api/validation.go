@@ -3,9 +3,7 @@ package api
 import (
 	"fmt"
 	"payment-gateway/internal/models"
-	"payment-gateway/internal/services/psp"
-
-	"github.com/google/uuid"
+	"payment-gateway/internal/psp"
 )
 
 // validateDepositRequest validates the deposit request body.
@@ -13,7 +11,7 @@ func validateDepositRequest(req models.DepositRequest, psp *psp.PSP) error {
 	if req.Amount == "" {
 		return fmt.Errorf("amount is required")
 	}
-	if req.UserID == uuid.Nil {
+	if req.UserID == "" {
 		return fmt.Errorf("user_id is required")
 	}
 	if req.Currency == "" {

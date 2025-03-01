@@ -1,0 +1,594 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a deposit processing API",
+        "title": "Deposit API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/deposit": {
+            "post": {
+                "description": "Handles deposit creation with payment gateway integration and stores result in Redis",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "deposits"
+                ],
+                "summary": "Process a new deposit request",
+                "parameters": [
+                    {
+                        "description": "Deposit request payload",
+                        "name": "deposit",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DepositRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deposit created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/gateways/{countryID}": {
+            "get": {
+                "description": "Fetches a list of supported payment gateway IDs for a specified country from Redis or DB, sorted by score",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "gateways"
+                ],
+                "summary": "Get payment gateways by country",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Country ID",
+                        "name": "countryID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of gateway IDs for the country",
+                        "schema": {
+                            "$ref": "#/definitions/api.GatewayResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Missing countryID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found - No gateways for the country",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Database or Redis failure",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/webhook/default-gateway": {
+            "post": {
+                "description": "Processes incoming webhook events from the default gateway, parses the payload, and delegates to the PSP service layer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "webhooks"
+                ],
+                "summary": "Handle default gateway webhook events",
+                "parameters": [
+                    {
+                        "description": "Default gateway webhook payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.DefaultGatewayEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook processed successfully",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Payload too large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Parsing or processing error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/webhook/stripe": {
+            "post": {
+                "description": "Processes incoming webhook events from Stripe, verifies the signature, and delegates to the PSP service layer",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "webhooks"
+                ],
+                "summary": "Handle Stripe webhook events",
+                "parameters": [
+                    {
+                        "description": "Stripe webhook payload (dynamic JSON structure)",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Stripe signature for verification",
+                        "name": "Stripe-Signature",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Webhook processed successfully",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Payload too large",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid signature",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error - Processing or module error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/withdrawal": {
+            "post": {
+                "description": "Handles withdrawal creation with payment gateway integration and stores result in Redis",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "withdrawals"
+                ],
+                "summary": "Process a new withdrawal request",
+                "parameters": [
+                    {
+                        "description": "Withdrawal request payload",
+                        "name": "withdrawal",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CustomWithdrawalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Withdrawal created successfully",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Invalid gateway name",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method not allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.GatewayResponse": {
+            "type": "object",
+            "required": [
+                "country_id",
+                "gateways"
+            ],
+            "properties": {
+                "country_id": {
+                    "description": "2-letter ISO country code",
+                    "type": "string",
+                    "example": "US"
+                },
+                "gateways": {
+                    "description": "List of gateways sorted by score",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Gateway"
+                    }
+                }
+            }
+        },
+        "models.BankAccountDetails": {
+            "type": "object",
+            "required": [
+                "account_holder_name",
+                "account_holder_type",
+                "account_number",
+                "country",
+                "currency",
+                "routing_number"
+            ],
+            "properties": {
+                "account_holder_name": {
+                    "description": "Name of the account holder",
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "account_holder_type": {
+                    "description": "\"individual\" or \"company\"",
+                    "type": "string",
+                    "enum": [
+                        "individual",
+                        "company"
+                    ],
+                    "example": "individual"
+                },
+                "account_number": {
+                    "description": "Bank account number",
+                    "type": "string",
+                    "example": "1234567890"
+                },
+                "country": {
+                    "description": "Two-letter country code (e.g., \"US\")",
+                    "type": "string",
+                    "example": "US"
+                },
+                "currency": {
+                    "description": "Three-letter currency code (e.g., \"usd\")",
+                    "type": "string",
+                    "example": "usd"
+                },
+                "routing_number": {
+                    "description": "Bank routing number (ACH), typically 9 digits in the US",
+                    "type": "string",
+                    "example": "110000614"
+                }
+            }
+        },
+        "models.CustomWithdrawalRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "bank_details",
+                "country_id",
+                "currency",
+                "description",
+                "gateway_id",
+                "gateway_name",
+                "method",
+                "user_id"
+            ],
+            "properties": {
+                "amount": {
+                    "description": "Amount in cents",
+                    "type": "integer",
+                    "example": 5000
+                },
+                "bank_details": {
+                    "description": "Custom bank details",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.BankAccountDetails"
+                        }
+                    ]
+                },
+                "country_id": {
+                    "description": "2-letter ISO country code",
+                    "type": "string",
+                    "example": "US"
+                },
+                "currency": {
+                    "description": "3-letter ISO code (e.g., \"usd\")",
+                    "type": "string",
+                    "example": "usd"
+                },
+                "description": {
+                    "description": "Description of the payout",
+                    "type": "string",
+                    "example": "Monthly payout"
+                },
+                "gateway_id": {
+                    "description": "ID of the gateway",
+                    "type": "string",
+                    "example": "gw1"
+                },
+                "gateway_name": {
+                    "description": "Name of the gateway",
+                    "type": "string",
+                    "example": "stripe"
+                },
+                "metadata": {
+                    "description": "Optional additional data",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "{\"key\"": "\"value\"}"
+                    }
+                },
+                "method": {
+                    "description": "\"standard\" or \"instant\" (default: \"standard\")",
+                    "type": "string",
+                    "enum": [
+                        "standard",
+                        "instant"
+                    ],
+                    "example": "standard"
+                },
+                "statement_descriptor": {
+                    "description": "Text on recipient's statement (max 22 chars)",
+                    "type": "string",
+                    "maxLength": 22,
+                    "example": "EXINITY PAYOUT"
+                },
+                "user_id": {
+                    "description": "User ID making the withdrawal",
+                    "type": "string",
+                    "example": "user123"
+                }
+            }
+        },
+        "models.Data": {
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "description": "Optional metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "country_id": "3",
+                        "currency": "USD",
+                        "gateway_id": "7"
+                    }
+                }
+            }
+        },
+        "models.DefaultGatewayEvent": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "description": "Amount in cents",
+                    "type": "integer",
+                    "example": 5000
+                },
+                "currency": {
+                    "description": "3-letter ISO currency code",
+                    "type": "string",
+                    "example": "usd"
+                },
+                "data": {
+                    "description": "Additional event data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Data"
+                        }
+                    ]
+                },
+                "id": {
+                    "description": "Unique event identifier",
+                    "type": "string",
+                    "example": "fb848efc-2ea4-4de9-bece-d0e640ceb1ad"
+                },
+                "type": {
+                    "description": "Event type",
+                    "type": "string",
+                    "example": "payment_intent.created"
+                }
+            }
+        },
+        "models.DepositRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "country_id",
+                "currency",
+                "gateway_id",
+                "gateway_name",
+                "user_id"
+            ],
+            "properties": {
+                "amount": {
+                    "description": "Deposit amount",
+                    "type": "string",
+                    "example": "100"
+                },
+                "country_id": {
+                    "description": "Country code",
+                    "type": "string",
+                    "example": "3"
+                },
+                "currency": {
+                    "description": "Currency code",
+                    "type": "string",
+                    "example": "USD"
+                },
+                "gateway_id": {
+                    "description": "Payment gateway ID",
+                    "type": "string",
+                    "example": "1"
+                },
+                "gateway_name": {
+                    "description": "Payment gateway name",
+                    "type": "string",
+                    "example": "STRIPE"
+                },
+                "user_id": {
+                    "description": "Unique user identifier",
+                    "type": "string",
+                    "example": "1"
+                }
+            }
+        },
+        "models.Gateway": {
+            "type": "object",
+            "required": [
+                "id",
+                "name"
+            ],
+            "properties": {
+                "id": {
+                    "description": "Unique gateway identifier",
+                    "type": "string",
+                    "example": "1"
+                },
+                "name": {
+                    "description": "Name of the gateway",
+                    "type": "string",
+                    "example": "STRIPE"
+                },
+                "score": {
+                    "type": "integer"
+                }
+            }
+        }
+    }
+}

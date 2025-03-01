@@ -1,6 +1,6 @@
 package models
 
-import "github.com/google/uuid"
+import "github.com/go-playground/validator/v10"
 
 // a standard request structure for the transactions
 type TransactionRequest struct {
@@ -13,32 +13,39 @@ type APIResponse struct {
 	Data       interface{} `json:"data,omitempty" xml:"data,omitempty"`
 }
 
-// DepositRequest struct for decoding the deposit request body.
+// DepositRequest represents a deposit request payload
 type DepositRequest struct {
-	Amount      string    `json:"amount"`
-	UserID      uuid.UUID `json:"user_id"`
-	Currency    string    `json:"currency"`
-	GatewayID   string    `json:"gateway_id"`
-	GatewayName string    `json:"gateway_name"`
-	CountryID   string    `json:"country_id"`
+	Amount      string `json:"amount" validate:"required" example:"100"`          // Deposit amount
+	UserID      string `json:"user_id" validate:"required" example:"1"`           // Unique user identifier
+	Currency    string `json:"currency" validate:"required" example:"USD"`        // Currency code
+	GatewayID   string `json:"gateway_id" validate:"required" example:"1"`        // Payment gateway ID
+	GatewayName string `json:"gateway_name" validate:"required" example:"STRIPE"` // Payment gateway name
+	CountryID   string `json:"country_id" validate:"required" example:"3"`        // Country code
 }
 
-// WithdrawalRequest struct for decoding the deposit request body.
-type WithdrawalRequest struct {
-	Amount              int64             `json:"amount"`               // Amount in cents
-	Currency            string            `json:"currency"`             // 3-letter ISO code (e.g., "usd")
-	Description         string            `json:"description"`          // Description of the payout
-	Destination         string            `json:"destination"`          // Destination bank account or card ID
-	Method              string            `json:"method"`               // "standard" or "instant" (default: "standard")
-	StatementDescriptor string            `json:"statement_descriptor"` // Text that appears on recipient's statement
-	Metadata            map[string]string `json:"metadata"`             // Optional: additional data
-	GatewayID           string            `json:"gateway_id"`
-	UserID              uuid.UUID         `json:"user_id"`
+// ValidateDepositRequest validates the DepositRequest struct
+func ValidateDepositRequest(req DepositRequest) error {
+	validate := validator.New()
+	err := validate.Struct(req)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Gateway struct for response
 type Gateway struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Score int    `json:"score"`
+	ID    string `json:"id" validate:"required" example:"1"`        // Unique gateway identifier
+	Name  string `json:"name" validate:"required" example:"STRIPE"` // Name of the gateway
+	Score int
+}
+
+// ValidateGateway validates the Gateway struct
+func ValidateGateway(gateway Gateway) error {
+	validate := validator.New()
+	err := validate.Struct(gateway)
+	if err != nil {
+		return err
+	}
+	return nil
 }

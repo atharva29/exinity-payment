@@ -3,16 +3,23 @@ package main
 import (
 	"log"
 	"net/http"
-	"payment-gateway/db/db"
-	"payment-gateway/db/redis"
+	"payment-gateway/db"
 	"payment-gateway/internal/api"
-	"payment-gateway/internal/services/psp"
-	"payment-gateway/internal/services/psp/razorpay"
-	"payment-gateway/internal/services/psp/stripe"
+	"payment-gateway/internal/psp"
+	"payment-gateway/internal/psp/defaultgateway"
+	"payment-gateway/internal/psp/razorpay"
+	"payment-gateway/internal/psp/stripe"
+
+	_ "payment-gateway/docs" // Import generated docs
 
 	"github.com/joho/godotenv"
 )
 
+// @title Deposit API
+// @version 1.0
+// @description This is a deposit processing API
+// @host localhost:8080
+// @BasePath /
 func main() {
 
 	// Load environment variables from .env file
@@ -21,18 +28,15 @@ func main() {
 		log.Println("Error loading .env file, using defaults or system environment variables")
 	}
 
-	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init()})
+	psp := psp.Init([]psp.IPSP{razorpay.Init(), stripe.Init(), defaultgateway.Init()})
 
-	redisClient, err := redis.Init()
+	db, err := db.NewDB()
 	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
+		log.Fatalf("error loading DB : %v", err.Error())
 	}
 
-	// Initialize the database connection
-	db := db.InitializeDB()
-
 	// // Set up the HTTP server and routes
-	router := api.SetupRouter(psp, redisClient, db)
+	router := api.SetupRouter(psp, db)
 
 	// // Start the server on port 8080
 	log.Println("Starting server on port 8080...")
