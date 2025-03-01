@@ -45,19 +45,19 @@ func InitializeDB() (*DB, error) {
 	return &DB{db}, nil
 }
 
-func CreateUser(db *sql.DB, user User) error {
+func (d *DB) CreateUser(user User) error {
 	query := `INSERT INTO users (username, email, country_id, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	err := db.QueryRow(query, user.Username, user.Email, user.CountryID, time.Now(), time.Now()).Scan(&user.ID)
+	err := d.db.QueryRow(query, user.Username, user.Email, user.CountryID, time.Now(), time.Now()).Scan(&user.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %v", err)
 	}
 	return nil
 }
 
-func GetUsers(db *sql.DB) ([]User, error) {
-	rows, err := db.Query(`SELECT id, username, email, country_id, created_at, updated_at FROM users`)
+func (d *DB) GetUsers() ([]User, error) {
+	rows, err := d.db.Query(`SELECT id, username, email, country_id, created_at, updated_at FROM users`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch users: %v", err)
 	}
@@ -77,19 +77,19 @@ func GetUsers(db *sql.DB) ([]User, error) {
 	return users, nil
 }
 
-func CreateGateway(db *sql.DB, gateway Gateway) error {
+func (d *DB) CreateGateway(gateway Gateway) error {
 	query := `INSERT INTO gateways (name, data_format_supported, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4) RETURNING id`
 
-	err := db.QueryRow(query, gateway.Name, gateway.DataFormatSupported, time.Now(), time.Now()).Scan(&gateway.ID)
+	err := d.db.QueryRow(query, gateway.Name, gateway.DataFormatSupported, time.Now(), time.Now()).Scan(&gateway.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert gateway: %v", err)
 	}
 	return nil
 }
 
-func GetGateways(db *sql.DB) ([]Gateway, error) {
-	rows, err := db.Query(`SELECT id, name, data_format_supported, created_at, updated_at FROM gateways`)
+func (d *DB) GetGateways() ([]Gateway, error) {
+	rows, err := d.db.Query(`SELECT id, name, data_format_supported, created_at, updated_at FROM gateways`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch gateways: %v", err)
 	}
@@ -109,19 +109,19 @@ func GetGateways(db *sql.DB) ([]Gateway, error) {
 	return gateways, nil
 }
 
-func CreateCountry(db *sql.DB, country Country) error {
+func (d *DB) CreateCountry(country Country) error {
 	query := `INSERT INTO countries (name, code, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4) RETURNING id`
 
-	err := db.QueryRow(query, country.Name, country.Code, time.Now(), time.Now()).Scan(&country.ID)
+	err := d.db.QueryRow(query, country.Name, country.Code, time.Now(), time.Now()).Scan(&country.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert country: %v", err)
 	}
 	return nil
 }
 
-func GetCountries(db *sql.DB) ([]Country, error) {
-	rows, err := db.Query(`SELECT id, name, code, created_at, updated_at FROM countries`)
+func (d *DB) GetCountries() ([]Country, error) {
+	rows, err := d.db.Query(`SELECT id, name, code, created_at, updated_at FROM countries`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch countries: %v", err)
 	}
@@ -141,19 +141,77 @@ func GetCountries(db *sql.DB) ([]Country, error) {
 	return countries, nil
 }
 
-func CreateTransaction(db *sql.DB, transaction Transaction) error {
-	query := `INSERT INTO transactions (amount, type, status, gateway_id, country_id, user_id, created_at) 
-			  VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`
+func (d *DB) CreateTransaction(transaction Transaction) error {
+	// Start a transaction
+	tx, err := d.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
 
-	err := db.QueryRow(query, transaction.Amount, transaction.Type, transaction.Status, transaction.GatewayID, transaction.CountryID, transaction.UserID, time.Now()).Scan(&transaction.ID)
+	// Defer a rollback in case anything fails
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+	}()
+
+	// Insert into transactions table
+	queryTransaction := `
+		INSERT INTO transactions (
+			order_id, amount, type, status, gateway_id, 
+			country_id, user_id, created_at, currency
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+		RETURNING id`
+
+	err = tx.QueryRow(queryTransaction,
+		transaction.OrderID,
+		transaction.Amount,
+		transaction.Type,
+		transaction.Status,
+		transaction.GatewayID,
+		transaction.CountryID,
+		transaction.UserID,
+		time.Now(),
+		transaction.Currency,
+	).Scan(&transaction.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert transaction: %v", err)
 	}
+
+	// Update or insert into ledger table
+	// Using UPSERT (INSERT ... ON CONFLICT) to handle both new and existing ledger entries
+	queryLedger := `
+		INSERT INTO ledger (user_id, currency, amount, updated_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id, currency)
+		DO UPDATE SET 
+			amount = ledger.amount + EXCLUDED.amount,
+			updated_at = EXCLUDED.updated_at
+		RETURNING id`
+
+	var ledgerID int
+	err = tx.QueryRow(queryLedger,
+		transaction.UserID,
+		transaction.Currency,
+		transaction.Amount,
+		time.Now(),
+	).Scan(&ledgerID)
+	if err != nil {
+		return fmt.Errorf("failed to update ledger: %v", err)
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
 	return nil
 }
 
-func GetTransactions(db *sql.DB) ([]Transaction, error) {
-	rows, err := db.Query(`SELECT id, amount, type, status, user_id, gateway_id, country_id, created_at FROM transactions`)
+func (d *DB) GetTransactions() ([]Transaction, error) {
+	rows, err := d.db.Query(`SELECT id, amount, type, status, user_id, gateway_id, country_id, created_at FROM transactions`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transactions: %v", err)
 	}
@@ -173,7 +231,7 @@ func GetTransactions(db *sql.DB) ([]Transaction, error) {
 	return transactions, nil
 }
 
-func GetSupportedCountriesByGateway(db *sql.DB, gatewayID int) ([]Country, error) {
+func (d *DB) GetSupportedCountriesByGateway(gatewayID int) ([]Country, error) {
 	query := `
 		SELECT c.id AS country_id, c.name AS country_name
 		FROM countries c
@@ -182,7 +240,7 @@ func GetSupportedCountriesByGateway(db *sql.DB, gatewayID int) ([]Country, error
 		ORDER BY c.name
 	`
 
-	rows, err := db.Query(query, gatewayID)
+	rows, err := d.db.Query(query, gatewayID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch countries for gateway %d: %v", gatewayID, err)
 	}
@@ -202,4 +260,27 @@ func GetSupportedCountriesByGateway(db *sql.DB, gatewayID int) ([]Country, error
 	}
 
 	return countries, nil
+}
+
+// CheckUserBalance checks if the user has sufficient balance for a withdrawal
+func (d *DB) CheckUserBalance(userID int, currency string, amount float64) (bool, float64, error) {
+	var currentBalance float64
+
+	query := `
+		SELECT amount 
+		FROM ledger 
+		WHERE user_id = $1 AND currency = $2`
+
+	err := d.db.QueryRow(query, userID, currency).Scan(&currentBalance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No ledger entry exists for this user/currency
+			return false, 0, fmt.Errorf("no balance found for user %d in currency %s", userID, currency)
+		}
+		return false, 0, fmt.Errorf("failed to check balance: %v", err)
+	}
+
+	// Check if balance is sufficient
+	hasEnough := currentBalance >= amount
+	return hasEnough, currentBalance, nil
 }

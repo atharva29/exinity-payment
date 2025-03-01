@@ -442,12 +442,12 @@ const docTemplate = `{
                 "gateway_id": {
                     "description": "ID of the gateway",
                     "type": "string",
-                    "example": "gw1"
+                    "example": "7"
                 },
                 "gateway_name": {
                     "description": "Name of the gateway",
                     "type": "string",
-                    "example": "stripe"
+                    "example": "DEFAULT_GATEWAY"
                 },
                 "metadata": {
                     "description": "Optional additional data",
@@ -456,7 +456,9 @@ const docTemplate = `{
                         "type": "string"
                     },
                     "example": {
-                        "{\"key\"": "\"value\"}"
+                        "country_id": "3",
+                        "currency": "USD",
+                        "gateway_id": "7"
                     }
                 },
                 "method": {
@@ -477,7 +479,7 @@ const docTemplate = `{
                 "user_id": {
                     "description": "User ID making the withdrawal",
                     "type": "string",
-                    "example": "user123"
+                    "example": "1"
                 }
             }
         },
@@ -493,7 +495,8 @@ const docTemplate = `{
                     "example": {
                         "country_id": "3",
                         "currency": "USD",
-                        "gateway_id": "7"
+                        "gateway_id": "7",
+                        "user_id": "1"
                     }
                 }
             }

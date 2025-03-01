@@ -23,7 +23,7 @@ func (s *DefaultGatewayClient) Deposit(req models.DepositRequest) (string, strin
 	params.Metadata = map[string]string{
 		"user_id":      req.UserID,
 		"gateway_id":   req.GatewayID,
-		"gateway_name": "STRIPE",
+		"gateway_name": "DEFAULT_GATEWAY",
 		"country_id":   req.CountryID,
 	}
 

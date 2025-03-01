@@ -8,7 +8,7 @@ import (
 
 // GatewayResponse struct for API response
 type GatewayResponse struct {
-	CountryID string           `json:"country_id" validate:"required,len=2" example:"US"` // 2-letter ISO country code
+	CountryID string           `json:"country_id" validate:"required" example:"US"` // 2-letter ISO country code
 	Gateways  []models.Gateway `json:"gateways" validate:"dive,required"`                 // List of gateways sorted by score
 }
 

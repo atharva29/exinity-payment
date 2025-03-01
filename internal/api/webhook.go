@@ -46,7 +46,7 @@ func StripeWebhookHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, 
 
 	p, err := psp.Get("STRIPE")
 	if err != nil {
-		log.Printf("⚠️  Invalid module: %v\n", err)
+		log.Printf("⚠️  Invalid gateway: %v\n", err)
 		http.Error(w, "Invalid error", http.StatusInternalServerError)
 		return
 	}
@@ -86,7 +86,7 @@ func DefaultGatewayWebhookHandler(w http.ResponseWriter, r *http.Request, psp *p
 
 	p, err := psp.Get("DEFAULT_GATEWAY")
 	if err != nil {
-		log.Printf("⚠️  Invalid module: %v\n", err)
+		log.Printf("⚠️  Invalid gateway: %v\n", err)
 		http.Error(w, "Invalid error", http.StatusInternalServerError)
 		return
 	}

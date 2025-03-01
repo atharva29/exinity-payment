@@ -2,7 +2,7 @@ package models
 
 // Data represents additional data in the default gateway event
 type Data struct {
-	Metadata map[string]string `json:"metadata" example:"country_id:3,currency:USD,gateway_id:7"` // Optional metadata
+	Metadata map[string]string `json:"metadata" example:"country_id:3,currency:USD,gateway_id:7,user_id:1"` // Optional metadata
 }
 
 // DefaultGatewayEvent represents the event structure for default gateway webhooks

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"payment-gateway/db"
+	database "payment-gateway/db/db"
 	"payment-gateway/db/redis"
 	"payment-gateway/internal/models"
 	"time"
@@ -27,9 +28,9 @@ func (s *DefaultGatewayClient) HandleWebhook(ev any, db *db.DB) error {
 	case "payout.created":
 		return s.handlePayoutCreated(e, db.Redis)
 	case "payout.paid":
-		return s.handlePayoutCompleted(e, db.Redis)
+		return s.handlePayoutCompleted(e, db)
 	case "payout.failed":
-		return s.handlePayoutFailed(e, db.Redis)
+		return s.handlePayoutFailed(e, db)
 	case "payout.canceled":
 		return s.handlePayoutCancelled(e, db.Redis)
 
@@ -42,6 +43,11 @@ func (s *DefaultGatewayClient) HandleWebhook(ev any, db *db.DB) error {
 
 // handlePaymentIntentSucceeded handles successful payments
 func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGatewayEvent, db *db.DB) error {
+	metadata, err := validateMetadata(e.Data.Metadata)
+	if err != nil {
+		log.Printf("❌ Error converting gateway_id to int: %v", err)
+		return fmt.Errorf("invalid gateway_id format: %v", err)
+	}
 
 	data := map[string]interface{}{
 		"status": "success",
@@ -57,6 +63,20 @@ func (s *DefaultGatewayClient) handlePaymentIntentSucceeded(e *models.DefaultGat
 		e.Data.Metadata["country_id"],
 		e.Data.Metadata["gateway_id"])
 
+	err = db.DB.CreateTransaction(database.Transaction{
+		OrderID:   e.ID,
+		Amount:    float64(e.Amount) / 100,
+		Status:    "success",
+		Type:      "credit",
+		GatewayID: metadata["gateway_id"],
+		CountryID: metadata["country_id"],
+		UserID:    metadata["user_id"],
+		Currency:  e.Currency,
+	})
+	if err != nil {
+		log.Println("Error storing deposit transaction data in db:", err.Error())
+		return fmt.Errorf("failed to store deposit transaction data in db: %v", err.Error())
+	}
 	log.Printf("✅ Payment successful: Amount: %d", e.Amount)
 	return nil
 }
@@ -123,7 +143,13 @@ func (s *DefaultGatewayClient) handlePayoutCreated(e *models.DefaultGatewayEvent
 }
 
 // handlePayoutCompleted handles newly created payouts
-func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEvent, db *db.DB) error {
+	// Convert string metadata to integers
+	metadata, err := validateMetadata(e.Data.Metadata)
+	if err != nil {
+		log.Printf("❌ Error converting gateway_id to int: %v", err)
+		return fmt.Errorf("invalid gateway_id format: %v", err)
+	}
 
 	data := map[string]interface{}{
 		"status":       "completed",
@@ -131,9 +157,24 @@ func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEve
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(key, data); err != nil {
 		log.Println("Error storing withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
+	}
+
+	err = db.DB.CreateTransaction(database.Transaction{
+		OrderID:   e.ID,
+		Amount:    -float64(e.Amount) / 100,
+		Status:    "success",
+		Type:      "debit",
+		GatewayID: metadata["gateway_id"],
+		CountryID: metadata["country_id"],
+		UserID:    metadata["user_id"],
+		Currency:  e.Currency,
+	})
+	if err != nil {
+		log.Println("Error storing withdrawal transaction data in db:", err.Error())
+		return fmt.Errorf("failed to store withdrawal transaction data in db: %v", err.Error())
 	}
 
 	log.Printf("✅ Payout succcess: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
@@ -141,7 +182,13 @@ func (s *DefaultGatewayClient) handlePayoutCompleted(e *models.DefaultGatewayEve
 }
 
 // handlePayoutFailed handles newly created payouts
-func (s *DefaultGatewayClient) handlePayoutFailed(e *models.DefaultGatewayEvent, redisClient *redis.RedisClient) error {
+func (s *DefaultGatewayClient) handlePayoutFailed(e *models.DefaultGatewayEvent, db *db.DB) error {
+
+	_, err := validateMetadata(e.Data.Metadata)
+	if err != nil {
+		log.Printf("❌ Error converting gateway_id to int: %v", err)
+		return fmt.Errorf("invalid gateway_id format: %v", err)
+	}
 
 	data := map[string]interface{}{
 		"status":    "failed",
@@ -149,7 +196,7 @@ func (s *DefaultGatewayClient) handlePayoutFailed(e *models.DefaultGatewayEvent,
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:payoutid:%s", e.Data.Metadata["user_id"], e.ID)
-	if err := redisClient.HSet(key, data); err != nil {
+	if err := db.Redis.HSet(key, data); err != nil {
 		log.Println("Error storing withdrawal data in redis:", err.Error())
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
 	}
@@ -172,6 +219,6 @@ func (s *DefaultGatewayClient) handlePayoutCancelled(e *models.DefaultGatewayEve
 		return fmt.Errorf("failed to store withdrawal data in redis: %v", err.Error())
 	}
 
-	log.Printf("✅ Payout Failed: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
+	log.Printf("✅ Payout Cancelled: ID: %s, Amount: %d %s", e.ID, e.Amount, e.Currency)
 	return nil
 }

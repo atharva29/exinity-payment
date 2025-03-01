@@ -29,11 +29,13 @@ type Country struct {
 
 type Transaction struct {
 	ID        int
+	OrderID   string
 	Amount    float64
 	Type      string
 	Status    string
 	UserID    int
 	GatewayID int
 	CountryID int
+	Currency  string
 	CreatedAt time.Time
 }
