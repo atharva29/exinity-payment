@@ -12,10 +12,13 @@ import (
 )
 
 func (s *DefaultGatewayClient) PublishWebhookToKafka(ev any) error {
-	e := ev.(*models.DefaultGatewayEvent)
-	err := s.kafka.PublishData(s.GetTopic(), e.ID, e)
-	if err != nil {
-		log.Printf("Failed to publish data: %v", err)
+	e, ok := ev.(*models.DefaultGatewayEvent)
+	if !ok || e == nil {
+		return fmt.Errorf("invalid event type for default gateway publish")
+	}
+	if err := s.kafka.PublishData(s.GetTopic(), e.ID, e); err != nil {
+		// surface error so caller can retry or dead‑letter
+		return fmt.Errorf("publish to kafka failed: %w", err)
 	}
 	return nil
 }
