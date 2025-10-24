@@ -83,7 +83,7 @@ func (r *RazoryPay) HandleWebhook(ev any, db *db.DB) error {
 }
 
 func (r *RazoryPay) PublishWebhookToKafka(ev any) error {
-	return nil
+	return fmt.Errorf("PublishWebhookToKafka not implemented for Razorpay")
 }
 
 func (r *RazoryPay) ExtractWebhookData(payload map[string]interface{}) (string, int64, string, error) {
