@@ -3,6 +3,8 @@ package stripe
 import (
 	"fmt"
 	"os"
+	"payment-gateway/db"
+	"payment-gateway/internal/kafka"
 
 	stripe "github.com/stripe/stripe-go/v81"
 )
@@ -11,10 +13,11 @@ import (
 type StripeClient struct {
 	secretKey string
 	accountID string
+	kafka     *kafka.Kafka
 }
 
 // Init initializes the Stripe client with API key from environment
-func Init() *StripeClient {
+func Init(k *kafka.Kafka, db *db.DB) *StripeClient {
 	secretKey := os.Getenv("STRIPE_SECRET_KEY")
 	accountID := os.Getenv("STRIPE_ACCOUNT_ID")
 
@@ -23,10 +26,18 @@ func Init() *StripeClient {
 	}
 
 	stripe.Key = secretKey
-	return &StripeClient{
+	client := &StripeClient{
 		secretKey: secretKey,
 		accountID: accountID,
+		kafka:     k,
 	}
+
+	go client.kafka.ConsumeStripeWebhook(client.GetTopic(), db, client.HandleWebhook)
+	return client
+}
+
+func (s *StripeClient) GetTopic() string {
+	return "gateway.stripe"
 }
 
 func (s *StripeClient) GetName() string {
