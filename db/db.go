@@ -6,8 +6,8 @@ import (
 )
 
 type DB struct {
-	DB    *db.DB
-	Redis *redis.RedisClient
+	DB    db.IDB
+	Redis redis.IRedis
 }
 
 // NewDB creates a new DB instance
