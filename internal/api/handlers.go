@@ -25,7 +25,7 @@ import (
 // @Failure 405 {object} map[string]string "Method not allowed"
 // @Failure 500 {object} map[string]string "Internal server error"
 // @Router /deposit [post]
-func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient *redis.RedisClient) {
+func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisClient redis.IRedis) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -70,7 +70,7 @@ func DepositHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, redisC
 	}
 
 	key := fmt.Sprintf("deposit:userid:%s:orderid:%s", reqBody.UserID, orderID)
-	err = redisClient.HSet(key, data)
+	err = redisClient.HSet(r.Context(), key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -142,7 +142,7 @@ func WithdrawalHandler(w http.ResponseWriter, r *http.Request, psp *psp.PSP, db 
 	}
 
 	key := fmt.Sprintf("withdrawal:userid:%s:orderid:%s", reqBody.UserID, payoutID)
-	err = db.Redis.HSet(key, data)
+	err = db.Redis.HSet(r.Context(), key, data)
 	if err != nil {
 		log.Println("Error storing data in redis:", err.Error())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

@@ -24,7 +24,7 @@ services:
     image: bitnami/kafka:3.3
     ports:
       - "9093:9093"
-      - "9092:9092" 
+      - "9092:9092"
     volumes:
       - "kafka-volume:/bitnami"
     environment:
@@ -40,6 +40,7 @@ services:
       - zookeeper
     networks:
       - kafka_network
+
 
   # app:
   #   build: .
